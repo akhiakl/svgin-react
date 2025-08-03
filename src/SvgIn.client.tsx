@@ -4,17 +4,17 @@ import { fetchAndSanitizeSvg } from './utils/fetchAndSanitizeSvg';
 import { SvgInComponent } from './SvgInComponent';
 
 export const SvgIn: React.FC<SvgInProps> = (props) => {
-    const { src, sanitizeFn, ...rest } = props;
+    const { src, sanitizeFn, disableSanitization, ...rest } = props;
     const [svg, setSvg] = useState<string | null>(null);
     const [error, setError] = useState<Error | null>(null);
 
     useEffect(() => {
         let mounted = true;
-        fetchAndSanitizeSvg(src, sanitizeFn)
+        fetchAndSanitizeSvg(src, { sanitizeFn, disableSanitization })
             .then(sanitized => { if (mounted) setSvg(sanitized); })
             .catch(e => { if (mounted) setError(e); });
         return () => { mounted = false; };
-    }, [src, sanitizeFn]);
+    }, [src, sanitizeFn, disableSanitization]);
 
     if (error || !svg) return props.fallback ?? null;
     return <SvgInComponent svg={svg} {...rest} />;

@@ -9,4 +9,5 @@ export interface SvgInProps {
     className?: string;
     ariaLabel?: string;
     sanitizeFn?: (svg: string) => Promise<string>;
+    disableSanitization?: boolean;
 }

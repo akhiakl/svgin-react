@@ -20,13 +20,15 @@ Securely fetch and inline SVGs from URLs as React components. Supports both clie
 ## 📦 Install
 
 ```sh
+# If you want SVG sanitization (recommended for untrusted SVGs):
 npm install svgin-react dompurify
+# If you trust your SVGs and will disable sanitization:
+npm install svgin-react
 ```
 
 ---
 
 ## 🧩 Usage
-
 
 ### Universal Usage (Automatic Server/Client Resolution)
 
@@ -72,6 +74,7 @@ Props:
 - `className`: string
 - `ariaLabel`: string
 - `sanitizeFn?`: (svg: string) => Promise<string> (optional, override or disable sanitization)
+- `disableSanitization?`: boolean (optional, disables all sanitization)
 
 ### `SvgIn(props)` (server)
 
@@ -89,21 +92,25 @@ Props:
 - `svgin-react/server` → Only the server component (`SvgIn`). No client or preload code included.
 - `svgin-react/core` → Only core utilities (`preloadSvg`, types, etc.).
 
-This structure ensures **zero bundle bloat**: only the code you import is included in your app.
-
 ---
 
 ## 🛡️ Security
 
 - By default, all SVGs are sanitized with DOMPurify (dynamically imported, not in bundle unless used).
-- You can provide your own `sanitizeFn` or disable sanitization if you trust your SVG source.
+- You can provide your own `sanitizeFn` or **disable sanitization** if you trust your SVG source (no need to install dompurify in that case).
 
 ---
 
-## 📝 Example: Custom Sanitizer
+## 📝 Examples
 
+**Custom Sanitizer:**
 ```tsx
 <SvgIn src="/icons/alert.svg" sanitizeFn={async (svg) => svg} />
+```
+
+**Disable Sanitization:**
+```tsx
+<SvgIn src="/icons/alert.svg" disableSanitization />
 ```
 
 ---
