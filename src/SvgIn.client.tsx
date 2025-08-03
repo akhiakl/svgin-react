@@ -16,6 +16,17 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
         return () => { mounted = false; };
     }, [src, sanitizeFn, disableSanitization]);
 
-    if (error || !svg) return props.fallback ?? null;
+    if (error) return props.fallback ?? null;
+    if (!svg) {
+        return (
+            <svg
+                {...rest}
+                aria-busy="true"
+                aria-label="Loading SVG"
+                focusable="false"
+                tabIndex={-1}
+            />
+        );
+    }
     return <SvgInComponent svg={svg} {...rest} />;
 };
