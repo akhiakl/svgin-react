@@ -6,31 +6,16 @@ import { sanitizeSvg } from './sanitize';
  * Returns the sanitized SVG string, or throws on error.
  */
 
-// Try to get react/cache if available (React 19+), else fallback to in-memory cache
 
-let reactCache: (<T extends (...args: unknown[]) => unknown>(fn: T) => T) | undefined = undefined;
-let triedReactCache = false;
 
-async function getReactCache() {
-    if (!triedReactCache) {
-        triedReactCache = true;
-        try {
-            // @ts-expect-error: Dynamic import for optional react/cache support
-            const mod = await import('react/cache');
-            reactCache = mod.cache;
-        } catch {
-            reactCache = undefined;
-        }
-    }
-    return reactCache;
-}
-
-const inMemoryCache = new Map<string, Promise<string>>();
+import { setUniversalCache } from './universalCache';
 
 interface FetchAndSanitizeOptions {
     sanitizeFn?: (svg: string) => Promise<string>;
     disableSanitization?: boolean;
 }
+
+
 
 async function fetchAndSanitizeSvgImpl(
     url: string,
@@ -53,19 +38,6 @@ async function fetchAndSanitizeSvgImpl(
     return sanitized;
 }
 
-export async function fetchAndSanitizeSvg(
-    url: string,
-    options?: FetchAndSanitizeOptions
-): Promise<string> {
-    const cache = await getReactCache();
-    if (cache) {
-        const cachedFetcher = cache((...args: unknown[]) => fetchAndSanitizeSvgImpl(args[0] as string, args[1] as FetchAndSanitizeOptions));
-        return cachedFetcher(url, options) as Promise<string>;
-    } else {
-        const cacheKey = options?.disableSanitization ? `${url}__noSanitize` : url;
-        if (!inMemoryCache.has(cacheKey)) {
-            inMemoryCache.set(cacheKey, fetchAndSanitizeSvgImpl(url, options));
-        }
-        return inMemoryCache.get(cacheKey)!;
-    }
-}
+export const fetchAndSanitizeSvg = setUniversalCache(fetchAndSanitizeSvgImpl);
+
+
