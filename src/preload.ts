@@ -1,9 +1,9 @@
 
 
 import { getCachedSvg, setCachedSvg } from './utils/svgCache';
-import { sanitizeSvg } from './utils/sanitize';
 import { SvgInProps } from './types';
 import { setUniversalCache } from './utils/universalCache';
+import { sanitizeSvg } from './utils/sanitizeServer';
 
 
 

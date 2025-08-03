@@ -1,6 +1,6 @@
 import React from 'react';
 import type { SvgInProps } from './types';
-import { fetchAndSanitizeSvg } from './utils/fetchAndSanitizeSvg';
+import { fetchAndSanitizeSvg } from './utils/fetchAndSanitizeSvgServer';
 import { SvgInComponent } from './SvgInComponent';
 
 export async function SvgIn(props: SvgInProps) {

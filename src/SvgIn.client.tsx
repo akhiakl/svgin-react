@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { SvgInProps } from './types';
-import { fetchAndSanitizeSvg } from './utils/fetchAndSanitizeSvg';
+import { fetchAndSanitizeSvg } from './utils/fetchAndSanitizeSvgClient';
 import { SvgInComponent } from './SvgInComponent';
 
 export const SvgIn: React.FC<SvgInProps> = (props) => {
