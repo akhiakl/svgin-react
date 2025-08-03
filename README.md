@@ -10,7 +10,7 @@ Securely fetch and inline SVGs from URLs as React components. Supports both clie
 ## ✨ Features
 
 - **Client & Server:** Use in React apps, Next.js, RSC, SSR, etc.
-- **Sanitization:** Secure by default with DOMPurify (customizable or disableable).
+- **Sanitization:** Secure by default with isomorphic-dompurify (customizable or disableable).
 - **In-memory cache:** Fast, avoids duplicate fetches.
 - **Preload API:** Preload SVGs for instant rendering.
 - **Modern exports:** Separate entrypoints for client, server, and core utilities for best tree-shaking.
@@ -21,10 +21,12 @@ Securely fetch and inline SVGs from URLs as React components. Supports both clie
 
 ```sh
 # If you want SVG sanitization (recommended for untrusted SVGs):
-npm install svgin-react dompurify
+npm install svgin-react isomorphic-dompurify
 # If you trust your SVGs and will disable sanitization:
 npm install svgin-react
 ```
+
+> **Note:** This library uses [isomorphic-dompurify](https://github.com/kkomelin/isomorphic-dompurify), which provides a universal wrapper around DOMPurify for seamless use in both server and client environments. You can use it in a single line, and it does nothing by itself except making DOMPurify isomorphic/universal.
 
 ---
 
@@ -96,8 +98,8 @@ Props:
 
 ## 🛡️ Security
 
-- By default, all SVGs are sanitized with DOMPurify (dynamically imported, not in bundle unless used).
-- You can provide your own `sanitizeFn` or **disable sanitization** if you trust your SVG source (no need to install dompurify in that case).
+- By default, all SVGs are sanitized with isomorphic-dompurify (dynamically imported, not in bundle unless used).
+- You can provide your own `sanitizeFn` or **disable sanitization** if you trust your SVG source (no need to install isomorphic-dompurify in that case).
 
 ---
 

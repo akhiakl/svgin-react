@@ -1,6 +1,6 @@
 {
   "name": "svgin-react",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Securely fetch and inline SVGs as React components.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -34,10 +34,10 @@
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@types/react": "^18.3.23",
-    "dompurify": "^3.2.6",
     "eslint": "^9.32.0",
     "eslint-plugin-react": "^7.37.5",
     "globals": "^16.3.0",
+    "isomorphic-dompurify": "^2.26.0",
     "jiti": "^2.5.1",
     "tsup": "^8.0.0",
     "typescript": "^5.9.2",

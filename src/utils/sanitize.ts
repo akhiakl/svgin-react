@@ -1,10 +1,10 @@
-import type { default as DOMPurifyType } from 'dompurify';
+import type { default as DOMPurifyType } from 'isomorphic-dompurify';
 
 let domPurifyPromise: Promise<typeof DOMPurifyType> | null = null;
 
 async function getDOMPurify() {
     if (!domPurifyPromise) {
-        domPurifyPromise = import('dompurify').then(mod => mod.default);
+        domPurifyPromise = import('isomorphic-dompurify').then(mod => mod.default);
     }
     return domPurifyPromise;
 }
