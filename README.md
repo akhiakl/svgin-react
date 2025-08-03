@@ -27,30 +27,27 @@ npm install svgin-react dompurify
 
 ## 🧩 Usage
 
-### Next.js / React Server Components (RSC)
+
+### Universal Usage (Automatic Server/Client Resolution)
 
 ```tsx
-// app/icons/AlertIcon.server.tsx
-import { SvgInServer } from 'svgin-react/server';
-
-export default async function AlertIcon() {
-  return await SvgInServer({ src: '/icons/alert.svg', width: 32 });
-}
-```
-
-### React Client Components (SPA/CSR/Next.js)
-
-```tsx
-// app/icons/AlertIcon.client.tsx
-'use client';
-import { SvgIn } from 'svgin-react/client';
+// Works in both client and server components (auto-resolves)
+import { SvgIn } from 'svgin-react';
 
 export default function AlertIcon() {
   return <SvgIn src="/icons/alert.svg" width={24} fill="#f00" />;
 }
 ```
 
-> **Note:** If you use `SvgIn` in a Next.js app directory, you must add `'use client';` at the top of your component file to mark it as a client component.
+> **Note:** In Next.js app directory, add `'use client';` at the top of your file if you want a client component.
+
+### Forcing a specific entrypoint (advanced/legacy)
+
+```tsx
+// Force client-only or server-only entrypoint if needed
+import { SvgIn } from 'svgin-react/client';
+import { SvgIn } from 'svgin-react/server';
+```
 
 ### Preloading SVGs (client only)
 
@@ -76,7 +73,7 @@ Props:
 - `ariaLabel`: string
 - `sanitizeFn?`: (svg: string) => Promise<string> (optional, override or disable sanitization)
 
-### `SvgInServer(props)` (server)
+### `SvgIn(props)` (server)
 
 - Same props as `<SvgIn />`, but is an async function for use in server components.
 
@@ -89,7 +86,7 @@ Props:
 ## 🗂️ Entry Points & Tree-shaking
 
 - `svgin-react/client` → Only the client component (`SvgIn`). No server or preload code included.
-- `svgin-react/server` → Only the server component (`SvgInServer`). No client or preload code included.
+- `svgin-react/server` → Only the server component (`SvgIn`). No client or preload code included.
 - `svgin-react/core` → Only core utilities (`preloadSvg`, types, etc.).
 
 This structure ensures **zero bundle bloat**: only the code you import is included in your app.
@@ -108,14 +105,6 @@ This structure ensures **zero bundle bloat**: only the code you import is includ
 ```tsx
 <SvgIn src="/icons/alert.svg" sanitizeFn={async (svg) => svg} />
 ```
-
----
-
-## 🏆 Why this structure?
-
-- **Best tree-shaking:** No accidental client/server code mixing.
-- **Modern:** Designed for React 18+, Next.js, and future React architectures.
-- **Simple:** Only import what you need.
 
 ---
 
