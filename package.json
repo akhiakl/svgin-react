@@ -4,46 +4,45 @@
   "description": "Securely fetch and inline SVGs as React components.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
+  "types": "dist/client.d.ts",
   "files": [
     "dist",
     "src"
   ],
   "exports": {
     ".": {
+      "react-server": "./dist/server.js",
+      "react-client": "./dist/client.js",
       "import": "./dist/client.js",
-      "require": "./dist/client.js",
-      "types": "./dist/client.d.ts"
+      "require": "./dist/client.js"
     },
     "./client": {
       "import": "./dist/client.js",
-      "require": "./dist/client.js",
-      "types": "./dist/client.d.ts"
+      "require": "./dist/client.js"
     },
     "./server": {
       "import": "./dist/server.js",
-      "require": "./dist/server.js",
-      "types": "./dist/server.d.ts"
+      "require": "./dist/server.js"
     },
     "./core": {
       "import": "./dist/core.js",
-      "require": "./dist/core.js",
-      "types": "./dist/core.d.ts"
+      "require": "./dist/core.js"
     }
   },
   "peerDependencies": {
     "react": "^19.1.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.29.0",
+    "@eslint/js": "^9.32.0",
     "@types/react": "^18.3.23",
     "dompurify": "^3.2.6",
-    "eslint": "^9.29.0",
+    "eslint": "^9.32.0",
     "eslint-plugin-react": "^7.37.5",
-    "globals": "^16.2.0",
+    "globals": "^16.3.0",
+    "jiti": "^2.5.1",
     "tsup": "^8.0.0",
-    "typescript": "^5.0.0",
-    "typescript-eslint": "^8.35.0",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.38.0",
     "vite": "^5.0.0"
   },
   "packageManager": "pnpm@10.12.3",

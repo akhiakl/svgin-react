@@ -1,2 +1,1 @@
-import { SvgIn } from './SvgIn';
-export { SvgIn };
+export { SvgIn } from './SvgIn.client';

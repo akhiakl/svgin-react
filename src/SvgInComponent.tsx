@@ -6,7 +6,7 @@ import { parseAndInjectSvg } from './utils/svgUtils';
  * Pure SVG rendering component. Pass sanitized SVG string as `svg` prop.
  * Used by both client and server wrappers.
  */
-export const SvgIn: React.FC<Omit<SvgInProps, 'src' | 'sanitizeFn'> & { svg: string | null }> = ({
+export const SvgInComponent: React.FC<Omit<SvgInProps, 'src' | 'sanitizeFn'> & { svg: string | null }> = ({
     svg,
     width,
     height,
