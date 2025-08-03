@@ -7,12 +7,22 @@ import { sanitizeSvg } from './sanitize';
  */
 
 // Try to get react/cache if available (React 19+), else fallback to in-memory cache
+
 let reactCache: (<T extends (...args: unknown[]) => unknown>(fn: T) => T) | undefined = undefined;
-try {
-    // @ts-expect-error: Dynamic import for optional react/cache support
-    reactCache = (await import('react/cache')).cache;
-} catch {
-    // Optional dependency 'react/cache' not available; falling back to in-memory cache
+let triedReactCache = false;
+
+async function getReactCache() {
+    if (!triedReactCache) {
+        triedReactCache = true;
+        try {
+            // @ts-expect-error: Dynamic import for optional react/cache support
+            const mod = await import('react/cache');
+            reactCache = mod.cache;
+        } catch {
+            reactCache = undefined;
+        }
+    }
+    return reactCache;
 }
 
 const inMemoryCache = new Map<string, Promise<string>>();
@@ -47,8 +57,9 @@ export async function fetchAndSanitizeSvg(
     url: string,
     options?: FetchAndSanitizeOptions
 ): Promise<string> {
-    if (reactCache) {
-        const cachedFetcher = reactCache((...args: unknown[]) => fetchAndSanitizeSvgImpl(args[0] as string, args[1] as FetchAndSanitizeOptions));
+    const cache = await getReactCache();
+    if (cache) {
+        const cachedFetcher = cache((...args: unknown[]) => fetchAndSanitizeSvgImpl(args[0] as string, args[1] as FetchAndSanitizeOptions));
         return cachedFetcher(url, options) as Promise<string>;
     } else {
         const cacheKey = options?.disableSanitization ? `${url}__noSanitize` : url;
