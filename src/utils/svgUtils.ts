@@ -1,25 +1,11 @@
-import type { SvgInProps } from '../types';
-
 /**
- * Injects width, height, fill into the <svg> tag and returns { attrs, inner }.
+ * Extracts the inner markup of a sanitized `<svg>...</svg>` string, so it can
+ * be rendered via `dangerouslySetInnerHTML` inside a React-controlled `<svg>`
+ * element (which owns width/height/fill/className/aria-label as normal,
+ * escaped React props - see SvgInComponent).
  */
-export function parseAndInjectSvg(svg: string, props: Pick<SvgInProps, 'width' | 'height' | 'fill'>) {
+export function extractSvgInner(svg: string): string | null {
     if (!svg.startsWith('<svg')) return null;
-    const { width, height, fill } = props;
-    const injected = svg.replace(
-        /<svg([^>]*)>/,
-        (m: string, attrs: string) => {
-            let newAttrs = attrs;
-            if (width) newAttrs = newAttrs.replace(/width="[^"]*"/, '');
-            if (height) newAttrs = newAttrs.replace(/height="[^"]*"/, '');
-            if (fill) newAttrs = newAttrs.replace(/fill="[^"]*"/, '');
-            if (width) newAttrs += ` width="${width}"`;
-            if (height) newAttrs += ` height="${height}"`;
-            if (fill) newAttrs += ` fill="${fill}"`;
-            return `<svg${newAttrs}>`;
-        }
-    );
-    const match = injected.match(/^<svg([^>]*)>([\s\S]*)<\/svg>$/i);
-    if (!match) return null;
-    return { attrs: match[1], inner: match[2] };
+    const match = svg.match(/^<svg[^>]*>([\s\S]*)<\/svg>$/i);
+    return match ? match[1] : null;
 }
