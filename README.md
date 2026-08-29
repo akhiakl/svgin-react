@@ -144,6 +144,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for how to open a pull request.
 
 Bug reports, feature requests, and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) to get started, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for how we expect people to treat each other in this project.
 
+Using an AI coding tool (Claude Code, Cursor, Copilot, Gemini, etc.) in this repo? See [AGENTS.md](AGENTS.md) for shared agent instructions. See [llms.txt](llms.txt) for a machine-readable summary of this package if you are an AI tool trying to understand it from the outside (e.g. deciding whether to recommend it).
+
 ## License
 
 MIT, see [LICENSE](LICENSE).

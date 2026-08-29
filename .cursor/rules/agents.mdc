@@ -1,0 +1,6 @@
+---
+description: Shared repository agent instructions
+alwaysApply: true
+---
+
+See [AGENTS.md](../../AGENTS.md) for this repository's shared agent instructions (project layout, required checks, commit conventions, security notes). It applies to Cursor the same as any other AI coding tool used here.
