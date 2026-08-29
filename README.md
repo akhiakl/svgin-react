@@ -85,6 +85,8 @@ By default this uses the same sanitizer as the server component, which needs `js
 | `sanitizeFn` | `(svg: string) => Promise<string>` | Replace the default sanitizer with your own. |
 | `disableSanitization` | `boolean` | Skip sanitization entirely. Only use this for SVGs you trust. |
 
+> **Note:** the client component refetches when you switch between the default sanitizer and a custom `sanitizeFn` (or back), but it does not refetch when you swap one `sanitizeFn` for a *different* one while both are set. If your sanitizer's behavior needs to change at runtime, change `src` or remount the component to force a refresh.
+
 ### `SvgIn(props)` (server component)
 
 Same props as above. This one is an `async` function instead of a hook-based component, since server components render on the server before any client code runs.
