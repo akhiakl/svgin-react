@@ -132,6 +132,44 @@ describe('setUniversalCache (fallback in-memory cache)', () => {
         expect(impl).toHaveBeenCalledTimes(2);
     });
 
+    it('does not wrap a synchronous return value in a Promise', () => {
+        // Regression test for a review finding: the eviction logic must only
+        // wrap an actual thenable, not allocate a Promise for every call
+        // regardless of what fn returns.
+        const impl = vi.fn((n: number) => n * 2);
+        const cached = setUniversalCache(impl);
+
+        const result = cached(2);
+        expect(result).toBe(4);
+        expect(result).not.toHaveProperty('then');
+    });
+
+    it('does not expose the raw promise returned by fn, so an ignored rejection can still surface as unhandled', async () => {
+        // Regression test for a review finding: attaching a rejection handler
+        // directly to fn's own promise (e.g. via Promise.resolve(result).catch(...),
+        // which for a real Promise is just result.catch(...)) marks that exact
+        // promise as handled. If that same promise were then returned to the
+        // caller, a caller who never awaits or handles it would no longer
+        // trigger Node/the browser's unhandledrejection warning, silently
+        // hiding a real bug in their code.
+        //
+        // The fix derives a *new* promise for eviction (via .then, not
+        // .catch on the original), and caches and returns that derived
+        // promise instead of fn's own. This asserts the returned promise is
+        // not the same object fn returned - fn's own promise is only ever
+        // observed internally, so it staying "handled" is not user-visible.
+        let rawPromise: Promise<string> | undefined;
+        const impl = vi.fn((): Promise<string> => {
+            rawPromise = Promise.reject(new Error('boom'));
+            return rawPromise;
+        });
+        const cached = setUniversalCache(impl);
+
+        const returned = cached();
+        expect(returned).not.toBe(rawPromise);
+        await expect(returned).rejects.toThrow('boom');
+    });
+
     it('keeps memoizing a resolved promise across repeated calls', async () => {
         const impl = vi.fn(async (n: number) => n * 2);
         const cached = setUniversalCache(impl);
