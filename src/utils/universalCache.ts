@@ -81,7 +81,16 @@ export function setUniversalCache<T extends (...args: any[]) => any>(fn: T): T {
                 return ((...args: Parameters<F>): ReturnType<F> => {
                     const key = stableKey(args);
                     if (!inMemoryCache.has(key)) {
-                        inMemoryCache.set(key, fn(...args) as ReturnType<F>);
+                        const result = fn(...args) as ReturnType<F>;
+                        inMemoryCache.set(key, result);
+                        // If fn returns a promise that rejects (e.g. a failed fetch),
+                        // evict it so the next call with the same arguments retries
+                        // instead of replaying the same rejection forever.
+                        Promise.resolve(result).catch(() => {
+                            if (inMemoryCache.get(key) === result) {
+                                inMemoryCache.delete(key);
+                            }
+                        });
                     }
                     return inMemoryCache.get(key)!;
                 }) as F;
