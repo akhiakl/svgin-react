@@ -24,3 +24,6 @@ coverage/
 
 # Misc
 *.local
+
+# Husky internal shim
+.husky/_

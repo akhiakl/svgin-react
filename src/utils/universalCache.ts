@@ -58,8 +58,9 @@ function stableKey(value: unknown): string {
     if (typeof value === 'number') {
         // JSON.stringify(NaN) and JSON.stringify(Infinity/-Infinity) all
         // serialize to "null", which would collide with an actual `null`
-        // argument. Tag them explicitly instead of falling through to
-        // JSON.stringify below.
+        // argument, and JSON.stringify(-0) serializes to the same "0" as a
+        // positive zero even though Object.is(-0, 0) is false. Tag all of
+        // these explicitly instead of falling through to JSON.stringify.
         if (Number.isNaN(value)) return 'NaN';
         if (value === Infinity) return 'Infinity';
         if (value === -Infinity) return '-Infinity';

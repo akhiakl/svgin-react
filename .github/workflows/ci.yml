@@ -27,6 +27,22 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
 
+  commitlint:
+    name: Commit messages
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
@@ -117,6 +133,12 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha }}
           path: base
       - uses: pnpm/action-setup@v6
+        with:
+          # PR head/base are checked out into head/ and base/ subdirectories
+          # (not the workspace root), so pnpm/action-setup has no root
+          # package.json to read the "packageManager" field from unless told
+          # where to look.
+          package_json_file: head/package.json
       - uses: actions/setup-node@v7
         with:
           node-version: 22
