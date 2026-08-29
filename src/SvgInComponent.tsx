@@ -1,6 +1,6 @@
 import React from 'react';
 import type { SvgInProps } from './types';
-import { parseAndInjectSvg } from './utils/svgUtils';
+import { extractSvgInner } from './utils/svgUtils';
 
 /**
  * Pure SVG rendering component. Pass sanitized SVG string as `svg` prop.
@@ -16,8 +16,8 @@ export const SvgInComponent: React.FC<Omit<SvgInProps, 'src' | 'sanitizeFn'> & {
     ariaLabel,
 }) => {
     if (!svg) return fallback;
-    const parsed = parseAndInjectSvg(svg, { width, height, fill });
-    if (parsed) {
+    const inner = extractSvgInner(svg);
+    if (inner !== null) {
         return (
             <svg
                 {...(width ? { width } : {})}
@@ -25,7 +25,7 @@ export const SvgInComponent: React.FC<Omit<SvgInProps, 'src' | 'sanitizeFn'> & {
                 {...(fill ? { fill } : {})}
                 {...(className ? { className } : {})}
                 {...(ariaLabel ? { 'aria-label': ariaLabel } : {})}
-                dangerouslySetInnerHTML={{ __html: parsed.inner }}
+                dangerouslySetInnerHTML={{ __html: inner }}
             />
         );
     }
