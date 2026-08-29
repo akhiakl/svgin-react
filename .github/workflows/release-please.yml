@@ -1,0 +1,31 @@
+name: release-please
+
+# Watches Conventional Commits merged to main and keeps a standing "release
+# please" pull request up to date with the next version bump (from commit
+# types: feat -> minor, fix/perf/refactor -> patch, a "!" or BREAKING CHANGE
+# footer -> major) and a generated CHANGELOG.md entry. Merging that pull
+# request is what actually cuts the release: release-please creates the
+# GitHub Release and tag, which triggers release.yml to build and publish to
+# npm.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v5
+        with:
+          # The default GITHUB_TOKEN cannot be used here: a release (and its
+          # tag) created with it does not trigger other workflows, so
+          # release.yml's `on: release: published` would never fire. Needs a
+          # fine-grained PAT (contents: write, pull requests: write on this
+          # repo) stored as the RELEASE_PLEASE_TOKEN secret instead.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
