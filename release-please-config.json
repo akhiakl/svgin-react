@@ -1,19 +1,21 @@
 {
-    "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
-    "release-type": "node",
-    "packages": {
-        ".": {
-            "changelog-sections": [
-                { "type": "feat", "section": "Features" },
-                { "type": "fix", "section": "Bug Fixes" },
-                { "type": "perf", "section": "Performance" },
-                { "type": "refactor", "section": "Code Refactoring" },
-                { "type": "docs", "section": "Documentation" },
-                { "type": "build", "section": "Build System" },
-                { "type": "ci", "section": "Continuous Integration", "hidden": true },
-                { "type": "chore", "section": "Chores", "hidden": true },
-                { "type": "test", "section": "Tests", "hidden": true }
-            ]
-        }
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "release-search-depth": 20,
+  "commit-search-depth": 200,
+  "packages": {
+    ".": {
+      "changelog-sections": [
+        { "type": "feat", "section": "Features" },
+        { "type": "fix", "section": "Bug Fixes" },
+        { "type": "perf", "section": "Performance" },
+        { "type": "refactor", "section": "Code Refactoring" },
+        { "type": "docs", "section": "Documentation" },
+        { "type": "build", "section": "Build System" },
+        { "type": "ci", "section": "Continuous Integration", "hidden": true },
+        { "type": "chore", "section": "Chores", "hidden": true },
+        { "type": "test", "section": "Tests", "hidden": true }
+      ]
     }
+  }
 }
