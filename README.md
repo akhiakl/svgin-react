@@ -26,7 +26,7 @@ npm install svgin-react dompurify jsdom
 npm install svgin-react
 ```
 
-> **Note:** This library uses [DOMPurify](https://github.com/cure53/DOMPurify) directly for sanitization. On the server, it uses [jsdom](https://github.com/jsdom/jsdom) together with DOMPurify. You do not need isomorphic-dompurify.
+> **Note:** This library uses [DOMPurify](https://github.com/cure53/DOMPurify) directly for sanitization. On the server, it uses [jsdom](https://github.com/jsdom/jsdom) together with DOMPurify. `dompurify` and `jsdom` are declared as optional peer dependencies — install them if you use the default sanitizer (client and server respectively); skip them if you always pass your own `sanitizeFn` or `disableSanitization`. You do not need isomorphic-dompurify.
 
 ---
 
