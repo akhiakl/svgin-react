@@ -18,9 +18,10 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
     // still triggers a refetch.
     //
     // Limitation: replacing sanitizeFn with a *different* function while
-    // keeping hasSanitizeFn === true does not trigger a re-fetch. If you
-    // need to force a re-fetch when the sanitizer itself changes, use the
-    // `sanitizeFnKey` prop to provide a stable identity hint.
+    // keeping hasSanitizeFn === true does not trigger a re-fetch (see the
+    // README's "sanitizeFn identity note"). If the sanitizer's behavior
+    // needs to change at runtime, change the src prop or remount the
+    // component to force a refresh - there is no dedicated prop for this.
     const sanitizeFnRef = useRef(sanitizeFn);
     sanitizeFnRef.current = sanitizeFn;
     const hasSanitizeFn = sanitizeFn !== undefined;
