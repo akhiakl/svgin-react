@@ -1,10 +1,11 @@
 name: Release
 
-# Publishes to npm when a GitHub Release is published. Bump the version in
-# package.json and tag it (e.g. via `npm version`) as part of preparing the
-# release, then publish the GitHub Release from that tag - this workflow
-# re-runs the full quality gate before publishing so a release can never
-# skip lint/typecheck/test/build.
+# Publishes to npm when a GitHub Release is published. release-please.yml
+# opens a "release please" pull request that bumps package.json and
+# CHANGELOG.md from Conventional Commits merged to main; merging that PR is
+# what creates the GitHub Release (and tag) that triggers this workflow.
+# This workflow re-runs the full quality gate before publishing so a release
+# can never skip lint/typecheck/test/build.
 on:
   release:
     types: [published]
@@ -46,6 +47,14 @@ jobs:
           fi
 
       - name: Publish to npm
-        run: pnpm publish --access public --no-git-checks --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # Trusted publishing (OIDC) needs npm CLI >= 11.5.1, newer than what
+        # ships with Node 22, and pnpm's own `publish` command does not speak
+        # OIDC yet (https://github.com/pnpm/pnpm/issues/9812), so the actual
+        # publish step uses `npm publish` directly instead of `pnpm publish`.
+        # No NPM_TOKEN is needed: npm CLI auto-detects the GitHub Actions
+        # OIDC token and exchanges it for a short-lived publish credential,
+        # verified against the trusted publisher configured on npmjs.com for
+        # this exact repo + workflow file.
+        run: |
+          npm install -g npm@^11.5.1
+          npm publish --access public --provenance
