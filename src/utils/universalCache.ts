@@ -89,18 +89,34 @@ export function setUniversalCache<T extends (...args: any[]) => any>(fn: T): T {
                     const key = stableKey(args);
                     if (!inMemoryCache.has(key)) {
                         const result = fn(...args) as ReturnType<F>;
-                        inMemoryCache.set(key, result);
-                        // If the result is a Promise that rejects, remove it from the
-                        // cache so the next call retries instead of returning a
-                        // permanently-rejected Promise. Guard against the (unlikely)
-                        // race where a new P2 was stored under the same key between
-                        // P1 rejecting and this cleanup handler running: only evict
-                        // when the cached entry is still the specific rejected promise.
-                        Promise.resolve(result).catch(() => {
-                            if (inMemoryCache.get(key) === result) {
-                                inMemoryCache.delete(key);
-                            }
-                        });
+                        let cached: ReturnType<F>;
+                        if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
+                            // If fn returns a promise that rejects (e.g. a failed fetch),
+                            // evict it so the next call with the same arguments retries
+                            // instead of replaying the same rejection forever.
+                            //
+                            // A rejection handler is attached here via .then(), not
+                            // .catch() on `result` itself: attaching directly to `result`
+                            // would mark *that* promise as handled, which would silently
+                            // suppress an unhandledrejection warning/crash for a caller
+                            // who never awaits or handles the promise this call returns.
+                            // Deriving a *new* promise instead, caching and returning that
+                            // one, keeps `result` itself untouched, so an ignored rejection
+                            // still surfaces as unhandled the normal way, while the derived
+                            // promise (cached below) still rethrows after evicting.
+                            cached = (result as Promise<unknown>).then(
+                                (value) => value,
+                                (err) => {
+                                    if (inMemoryCache.get(key) === cached) {
+                                        inMemoryCache.delete(key);
+                                    }
+                                    throw err;
+                                }
+                            ) as ReturnType<F>;
+                        } else {
+                            cached = result;
+                        }
+                        inMemoryCache.set(key, cached);
                     }
                     return inMemoryCache.get(key)!;
                 }) as F;
