@@ -117,6 +117,12 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha }}
           path: base
       - uses: pnpm/action-setup@v6
+        with:
+          # PR head/base are checked out into head/ and base/ subdirectories
+          # (not the workspace root), so pnpm/action-setup has no root
+          # package.json to read the "packageManager" field from unless told
+          # where to look.
+          package_json_file: head/package.json
       - uses: actions/setup-node@v7
         with:
           node-version: 22
