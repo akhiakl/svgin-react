@@ -40,4 +40,31 @@ describe('SvgInComponent', () => {
         const { container } = render(<SvgInComponent svg={'<div>not svg</div>'} />);
         expect(container.firstChild).toBeNull();
     });
+
+    it('forwards viewBox from the source SVG to the rendered element', () => {
+        const { container } = render(
+            <SvgInComponent svg={'<svg viewBox="0 0 24 24"><path/></svg>'} />
+        );
+        const svg = container.querySelector('svg');
+        expect(svg).toHaveAttribute('viewBox', '0 0 24 24');
+    });
+
+    it('explicit props override matching source SVG attributes', () => {
+        const { container } = render(
+            <SvgInComponent
+                svg={'<svg fill="blue" viewBox="0 0 100 100"><path/></svg>'}
+                fill="#f00"
+                width={24}
+            />
+        );
+        const svg = container.querySelector('svg');
+        expect(svg).toHaveAttribute('fill', '#f00');
+        expect(svg).toHaveAttribute('width', '24');
+        expect(svg).toHaveAttribute('viewBox', '0 0 100 100');
+    });
+
+    it('renders null fallback (default) when svg is null and no fallback provided', () => {
+        const { container } = render(<SvgInComponent svg={null} />);
+        expect(container.firstChild).toBeNull();
+    });
 });

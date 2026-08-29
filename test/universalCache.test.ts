@@ -150,4 +150,32 @@ describe('setUniversalCache (fallback in-memory cache)', () => {
         expect(cached(sym)).toBe('Symbol(reused)');
         expect(impl).toHaveBeenCalledTimes(1);
     });
+
+    it('removes a rejected promise from the cache so the next call retries', async () => {
+        let callCount = 0;
+        const impl = vi.fn(async () => {
+            callCount++;
+            if (callCount === 1) throw new Error('first call fails');
+            return 'success on retry';
+        });
+        const cached = setUniversalCache(impl);
+
+        // First call rejects; the rejection should be removed from the cache.
+        await expect(cached()).rejects.toThrow('first call fails');
+        // Flush the microtask that deletes the cache entry.
+        await new Promise(r => setTimeout(r, 0));
+        // Second call must retry the underlying function, not return the cached rejection.
+        const result = await cached();
+        expect(result).toBe('success on retry');
+        expect(impl).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not collide -0 with 0 in the cache key', () => {
+        const impl = vi.fn((n: number) => (1 / n === Infinity ? 'positive-zero' : 'negative-zero'));
+        const cached = setUniversalCache(impl);
+
+        expect(cached(0)).toBe('positive-zero');
+        expect(cached(-0)).toBe('negative-zero');
+        expect(impl).toHaveBeenCalledTimes(2);
+    });
 });

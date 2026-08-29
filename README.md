@@ -58,6 +58,10 @@ import { SvgIn } from 'svgin-react/client';
 import { SvgIn } from 'svgin-react/server';
 ```
 
+### Framework support
+
+Works with any React 19+ setup: Next.js (Pages Router and App Router), Remix, Vite + React, Create React App, Astro (React islands), and plain Node SSR.
+
 ### Preloading
 
 `preloadSvg` fetches and sanitizes a URL ahead of time, so a later `<SvgIn src={url} />` for the same URL resolves from the cache instead of fetching again. It is `async`, so await it (or handle a rejected fetch) rather than treating it as fire-and-forget:
@@ -68,7 +72,16 @@ import { preloadSvg } from 'svgin-react/core';
 await preloadSvg('/icons/alert.svg');
 ```
 
-By default this uses the same sanitizer as the server component, which needs `jsdom` installed even when `preloadSvg` is called from browser code. Pass `sanitizeFn` or `disableSanitization` if you want to avoid that dependency.
+To avoid pulling in `jsdom` when calling `preloadSvg` from browser code, pass a `sanitizeFn` that uses browser DOMPurify directly:
+
+```ts
+import DOMPurify from 'dompurify';
+import { preloadSvg } from 'svgin-react/core';
+
+await preloadSvg('/icons/alert.svg', {
+  sanitizeFn: async (svg) => DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true } }),
+});
+```
 
 ## API
 
@@ -77,15 +90,17 @@ By default this uses the same sanitizer as the server component, which needs `js
 | Prop | Type | Description |
 | --- | --- | --- |
 | `src` | `string` | URL of the SVG to fetch. |
-| `width`, `height` | `number \| string` | Applied to the outer `<svg>` element. |
-| `fill` | `string` | Applied to the outer `<svg>` element. |
+| `width`, `height` | `number \| string` | Applied to the rendered `<svg>` element (overrides any matching source attribute). |
+| `fill` | `string` | Applied to the rendered `<svg>` element. |
 | `fallback` | `ReactNode` | Rendered if the fetch or sanitization fails. |
-| `className` | `string` | Applied to the outer `<svg>` element. |
-| `ariaLabel` | `string` | Sets `aria-label` on the outer `<svg>` element. |
+| `className` | `string` | Applied to the rendered `<svg>` element. |
+| `ariaLabel` | `string` | Sets `aria-label` on the rendered `<svg>` element. |
 | `sanitizeFn` | `(svg: string) => Promise<string>` | Replace the default sanitizer with your own. |
 | `disableSanitization` | `boolean` | Skip sanitization entirely. Only use this for SVGs you trust. |
 
-> **Note:** the client component refetches when you switch between the default sanitizer and a custom `sanitizeFn` (or back), but it does not refetch when you swap one `sanitizeFn` for a *different* one while both are set. If your sanitizer's behavior needs to change at runtime, change `src` or remount the component to force a refresh.
+Source SVG attributes (`viewBox`, `preserveAspectRatio`, `xmlns`, etc.) are automatically forwarded from the fetched SVG to the rendered element. Explicit props (`width`, `height`, `fill`, `className`, `ariaLabel`) always take precedence.
+
+> **`sanitizeFn` identity note:** switching from *no* custom sanitizer to *any* custom sanitizer (or back) triggers a re-fetch. Replacing one custom sanitizer with a *different* one while `sanitizeFn` is already defined does **not** trigger a re-fetch, because the component tracks presence rather than identity to avoid unnecessary re-fetches from inline arrow functions. If you need to force a re-fetch when the sanitizer logic changes, change the `src` prop or remount the component.
 
 ### `SvgIn(props)` (server component)
 

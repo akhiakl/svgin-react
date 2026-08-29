@@ -1,11 +1,6 @@
-
-
 import { getCachedSvg, setCachedSvg } from './utils/svgCache';
 import { SvgInProps } from './types';
 import { setUniversalCache } from './utils/universalCache';
-import { sanitizeSvg } from './utils/sanitizeServer';
-
-
 
 async function preloadSvgImpl(url: string, options?: Pick<SvgInProps, 'disableSanitization' | 'sanitizeFn'>): Promise<void> {
     // See fetchAndSanitizeSvgBase.ts: only the default-sanitizer result is safe to
@@ -21,15 +16,30 @@ async function preloadSvgImpl(url: string, options?: Pick<SvgInProps, 'disableSa
 
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Failed to fetch SVG: ${url}`);
-    let svg = await res.text();
-    if (options?.disableSanitization || options?.sanitizeFn) {
+    const contentType = res.headers?.get('content-type') ?? '';
+    if (contentType && !contentType.includes('svg') && !contentType.includes('xml') && !contentType.includes('octet-stream') && !contentType.includes('text/plain')) {
+        throw new Error(`Unexpected content-type for SVG: ${contentType}`);
+    }
+    const svgText = await res.text();
+
+    if (options?.disableSanitization) {
         // Non-default modes are intentionally not cached (see comment above), so
         // there's nothing safe to store here beyond warming the browser/HTTP cache
         // for the `fetch` call itself.
         return;
     }
-    svg = await sanitizeSvg(svg);
-    setCachedSvg(url, svg);
+    if (options?.sanitizeFn) {
+        // Custom sanitizer result is caller-specific, not stored in shared cache.
+        await options.sanitizeFn(svgText);
+        return;
+    }
+
+    // Default sanitizer: lazily import the server sanitizer (jsdom + DOMPurify).
+    // On the client, consumers should pass a `sanitizeFn` using `dompurify`
+    // directly to avoid bundling jsdom.
+    const { sanitizeSvg } = await import('./utils/sanitizeServer');
+    const sanitized = await sanitizeSvg(svgText);
+    setCachedSvg(url, sanitized);
 }
 
 export const preloadSvg = setUniversalCache(preloadSvgImpl);
