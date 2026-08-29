@@ -36,6 +36,8 @@ pnpm run size
 
 All of these also run in CI on every pull request, so it is faster to catch problems locally first.
 
+Test coverage (`pnpm run test:coverage`) is enforced at a minimum of 85% (statements, branches, functions, lines) in CI. Add a test alongside any new or changed code so it stays above that.
+
 ## Pull request title
 
 Pull request titles follow [Conventional Commits](https://www.conventionalcommits.org/): a type, then a colon, then a short description. For example:
