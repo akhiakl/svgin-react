@@ -176,7 +176,7 @@ describe('createFetchAndSanitizeSvg', () => {
     it('throws when the response Content-Type is clearly not SVG', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
             ok: true,
-            headers: { get: (_: string) => 'text/html; charset=utf-8' },
+            headers: { get: () => 'text/html; charset=utf-8' },
             text: () => Promise.resolve('<html>not an svg</html>'),
         }));
         const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn());
@@ -189,7 +189,7 @@ describe('createFetchAndSanitizeSvg', () => {
         const sanitize = vi.fn().mockResolvedValue('<svg><path/></svg>');
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
             ok: true,
-            headers: { get: (_: string) => 'image/svg+xml' },
+            headers: { get: () => 'image/svg+xml' },
             text: () => Promise.resolve('<svg><path/></svg>'),
         }));
         const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(sanitize);
