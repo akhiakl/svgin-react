@@ -1,0 +1,51 @@
+name: PR Quality
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  semantic-title:
+    name: Conventional PR title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            fix
+            feat
+            perf
+            refactor
+            chore
+            test
+            docs
+            ci
+            build
+          requireScope: false
+
+  size-label:
+    name: Label PR by diff size
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Warn on large PRs
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          CHANGED=$(git diff --shortstat "$BASE_SHA" "$HEAD_SHA" -- . ':(exclude)pnpm-lock.yaml' | tail -1)
+          echo "Diff (excluding lockfile): ${CHANGED:-no changes}"
+          LINES=$(git diff --numstat "$BASE_SHA" "$HEAD_SHA" -- . ':(exclude)pnpm-lock.yaml' | awk '{added+=$1; removed+=$2} END {print added+removed+0}')
+          echo "Total changed lines (excluding lockfile): $LINES"
+          if [ "$LINES" -gt 600 ]; then
+            echo "::warning::This PR changes $LINES lines (excluding the lockfile). Consider splitting it into smaller, focused PRs for easier review."
+          fi

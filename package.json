@@ -52,7 +52,8 @@
     "dev": "vite",
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "lint": "pnpm exec eslint . --ext .ts,.tsx"
+    "lint": "pnpm exec eslint . --ext .ts,.tsx",
+    "size": "node scripts/check-bundle-size.mjs"
   },
   "keywords": [
     "react",
