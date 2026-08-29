@@ -11,5 +11,6 @@ export default defineConfig([
   { files: ["scripts/**/*.mjs", "*.config.{js,mjs,ts}"], languageOptions: { globals: globals.node } },
   tseslint.configs.recommended,
   pluginReact.configs.flat.recommended,
+  pluginReact.configs.flat["jsx-runtime"],
   { settings: { react: { version: "19.1.0" } } },
 ]);
