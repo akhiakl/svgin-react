@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/akhiakl/svgin-react/security/advisories/new
+    about: Please do not open a public issue for a security vulnerability. Use this private channel instead.
+  - name: Ask a question
+    url: https://github.com/akhiakl/svgin-react/discussions
+    about: For general questions or usage help, start a discussion instead of an issue.
