@@ -102,6 +102,18 @@ describe('setUniversalCache (fallback in-memory cache)', () => {
         expect(impl).toHaveBeenCalledTimes(2);
     });
 
+    it('does not collide -0 with 0', () => {
+        // JSON.stringify(-0) === JSON.stringify(0) === "0", even though
+        // Object.is(-0, 0) is false and code can observe the difference
+        // (e.g. 1 / -0 === -Infinity).
+        const impl = vi.fn((n: number) => 1 / n);
+        const cached = setUniversalCache(impl);
+
+        expect(cached(-0)).toBe(-Infinity);
+        expect(cached(0)).toBe(Infinity);
+        expect(impl).toHaveBeenCalledTimes(2);
+    });
+
     it('reuses the cache entry when the same symbol is passed again', () => {
         const impl = vi.fn((s: symbol) => s.toString());
         const cached = setUniversalCache(impl);
