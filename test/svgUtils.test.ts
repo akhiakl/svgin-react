@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractSvgInner } from '../src/utils/svgUtils';
+import { extractSvgAttrs, extractSvgInner } from '../src/utils/svgUtils';
 
 describe('extractSvgInner', () => {
     it('returns the markup between the opening and closing svg tags', () => {
@@ -26,5 +26,42 @@ describe('extractSvgInner', () => {
 
     it('returns null for an empty string', () => {
         expect(extractSvgInner('')).toBeNull();
+    });
+
+    it('returns null when there is no > in the opening tag', () => {
+        expect(extractSvgInner('<svg')).toBeNull();
+    });
+
+    it('handles nested <svg> elements — extracts to the last closing tag', () => {
+        const svg = '<svg><svg><circle/></svg></svg>';
+        expect(extractSvgInner(svg)).toBe('<svg><circle/></svg>');
+    });
+});
+
+describe('extractSvgAttrs', () => {
+    it('returns attribute string for a tag with attributes', () => {
+        const result = extractSvgAttrs('<svg viewBox="0 0 24 24"><path/></svg>');
+        expect(result).toBe('viewBox="0 0 24 24"');
+    });
+
+    it('returns empty string for a tag with no attributes', () => {
+        expect(extractSvgAttrs('<svg><path/></svg>')).toBe('');
+    });
+
+    it('returns empty string when input does not start with <svg', () => {
+        expect(extractSvgAttrs('<div>test</div>')).toBe('');
+    });
+
+    it('returns empty string for an empty string', () => {
+        expect(extractSvgAttrs('')).toBe('');
+    });
+
+    it('returns empty string when the opening tag has no closing >', () => {
+        expect(extractSvgAttrs('<svg viewBox="0 0 24 24"')).toBe('');
+    });
+
+    it('returns multiple attributes', () => {
+        const result = extractSvgAttrs('<svg viewBox="0 0 24 24" fill="none"><path/></svg>');
+        expect(result).toBe('viewBox="0 0 24 24" fill="none"');
     });
 });

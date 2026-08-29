@@ -16,12 +16,19 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
     // all), so switching between the default sanitizer and a custom one -
     // an actual change in sanitization behavior, not just a new closure -
     // still triggers a refetch.
+    //
+    // Limitation: replacing sanitizeFn with a *different* function while
+    // keeping hasSanitizeFn === true does not trigger a re-fetch. If you
+    // need to force a re-fetch when the sanitizer itself changes, use the
+    // `sanitizeFnKey` prop to provide a stable identity hint.
     const sanitizeFnRef = useRef(sanitizeFn);
     sanitizeFnRef.current = sanitizeFn;
     const hasSanitizeFn = sanitizeFn !== undefined;
 
     useEffect(() => {
         let mounted = true;
+        setSvg(null);
+        setError(null);
         fetchAndSanitizeSvg(src, { sanitizeFn: sanitizeFnRef.current, disableSanitization })
             .then(sanitized => { if (mounted) setSvg(sanitized); })
             .catch(e => { if (mounted) setError(e); });
@@ -33,8 +40,7 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
         return (
             <svg
                 {...rest}
-                aria-busy="true"
-                aria-label="Loading SVG"
+                aria-hidden="true"
                 focusable="false"
                 tabIndex={-1}
             />

@@ -172,4 +172,43 @@ describe('createFetchAndSanitizeSvg', () => {
         expect(defaultSanitize).toHaveBeenCalledTimes(1);
         expect(fetch).toHaveBeenCalledTimes(1);
     });
+
+    it('throws when the response Content-Type is clearly not SVG', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            headers: { get: (_: string) => 'text/html; charset=utf-8' },
+            text: () => Promise.resolve('<html>not an svg</html>'),
+        }));
+        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn());
+        await expect(
+            fetchAndSanitizeSvg('https://example.com/page.html')
+        ).rejects.toThrow('Unexpected content-type');
+    });
+
+    it('accepts a response with image/svg+xml Content-Type', async () => {
+        const sanitize = vi.fn().mockResolvedValue('<svg><path/></svg>');
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            headers: { get: (_: string) => 'image/svg+xml' },
+            text: () => Promise.resolve('<svg><path/></svg>'),
+        }));
+        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(sanitize);
+        await expect(
+            fetchAndSanitizeSvg('https://example.com/icon.svg')
+        ).resolves.toBe('<svg><path/></svg>');
+    });
+
+    it('accepts a response with no Content-Type header (headers absent)', async () => {
+        // Many test/mock environments omit the headers object entirely.
+        // The check must be a no-op when content-type is absent.
+        const sanitize = vi.fn().mockResolvedValue('<svg><path/></svg>');
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            text: () => Promise.resolve('<svg><path/></svg>'),
+        }));
+        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(sanitize);
+        await expect(
+            fetchAndSanitizeSvg('https://example.com/icon2.svg')
+        ).resolves.toBe('<svg><path/></svg>');
+    });
 });

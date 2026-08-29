@@ -15,6 +15,11 @@ const fnIds = new WeakMap<object, number>();
 // library's own call signatures today, but stableKey is a general-purpose
 // serializer, so it should not silently mis-key on one just because nothing
 // currently passes one in.
+// Note: this Map holds a strong reference to every symbol it has seen and
+// therefore grows without bound when many distinct symbols are passed as
+// arguments. In practice no library code paths pass symbols, so the set
+// stays empty; the handling exists purely for correctness of stableKey as a
+// general serializer.
 let symbolIdCounter = 0;
 const symbolIds = new Map<symbol, number>();
 
@@ -58,6 +63,9 @@ function stableKey(value: unknown): string {
         if (Number.isNaN(value)) return 'NaN';
         if (value === Infinity) return 'Infinity';
         if (value === -Infinity) return '-Infinity';
+        // JSON.stringify(-0) returns "0", which collides with JSON.stringify(0).
+        // Tag -0 explicitly so it has a distinct key from 0.
+        if (Object.is(value, -0)) return '-0';
         return JSON.stringify(value);
     }
     if (value === null || typeof value !== 'object') return JSON.stringify(value);
@@ -79,7 +87,19 @@ export function setUniversalCache<T extends (...args: any[]) => any>(fn: T): T {
                 return ((...args: Parameters<F>): ReturnType<F> => {
                     const key = stableKey(args);
                     if (!inMemoryCache.has(key)) {
-                        inMemoryCache.set(key, fn(...args) as ReturnType<F>);
+                        const result = fn(...args) as ReturnType<F>;
+                        inMemoryCache.set(key, result);
+                        // If the result is a Promise that rejects, remove it from the
+                        // cache so the next call retries instead of returning a
+                        // permanently-rejected Promise. Guard against the (unlikely)
+                        // race where a new P2 was stored under the same key between
+                        // P1 rejecting and this cleanup handler running: only evict
+                        // when the cached entry is still the specific rejected promise.
+                        Promise.resolve(result).catch(() => {
+                            if (inMemoryCache.get(key) === result) {
+                                inMemoryCache.delete(key);
+                            }
+                        });
                     }
                     return inMemoryCache.get(key)!;
                 }) as F;
