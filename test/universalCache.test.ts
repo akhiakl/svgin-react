@@ -114,6 +114,33 @@ describe('setUniversalCache (fallback in-memory cache)', () => {
         expect(impl).toHaveBeenCalledTimes(2);
     });
 
+    it('evicts a rejected promise so the next call retries instead of replaying the rejection', async () => {
+        // The fallback cache stores the Promise before it settles. If a
+        // rejection stayed cached forever, every future call with the same
+        // arguments would replay that rejection with no way to recover
+        // without a reload.
+        let attempt = 0;
+        const impl = vi.fn((url: string): Promise<string> => {
+            attempt += 1;
+            if (attempt === 1) return Promise.reject(new Error(`network error: ${url}`));
+            return Promise.resolve('ok');
+        });
+        const cached = setUniversalCache(impl);
+
+        await expect(cached('url')).rejects.toThrow('network error');
+        await expect(cached('url')).resolves.toBe('ok');
+        expect(impl).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps memoizing a resolved promise across repeated calls', async () => {
+        const impl = vi.fn(async (n: number) => n * 2);
+        const cached = setUniversalCache(impl);
+
+        await expect(cached(2)).resolves.toBe(4);
+        await expect(cached(2)).resolves.toBe(4);
+        expect(impl).toHaveBeenCalledTimes(1);
+    });
+
     it('reuses the cache entry when the same symbol is passed again', () => {
         const impl = vi.fn((s: symbol) => s.toString());
         const cached = setUniversalCache(impl);
