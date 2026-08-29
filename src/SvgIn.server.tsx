@@ -1,4 +1,3 @@
-import React from 'react';
 import type { SvgInProps } from './types';
 import { fetchAndSanitizeSvg } from './utils/fetchAndSanitizeSvgServer';
 import { SvgInComponent } from './SvgInComponent';
