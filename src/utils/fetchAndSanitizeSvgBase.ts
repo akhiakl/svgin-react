@@ -11,8 +11,18 @@ export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string |
         url: string,
         options?: FetchAndSanitizeOptions
     ): Promise<string> {
-        const cached = getCachedSvg(url);
-        if (cached) return cached;
+        // Only the default sanitizer's output is safe to share across every caller of
+        // this URL. `disableSanitization` and custom `sanitizeFn` results are per-call
+        // and must never be written to (or read from) the shared cache - otherwise a
+        // raw/custom result for one caller could leak out as the "sanitized" result
+        // for another caller of the same URL.
+        const usesSharedCache = !options?.disableSanitization && !options?.sanitizeFn;
+
+        if (usesSharedCache) {
+            const cached = getCachedSvg(url);
+            if (cached) return cached;
+        }
+
         const res = await fetch(url);
         if (!res.ok) throw new Error(`Failed to fetch SVG: ${url}`);
         const raw = await res.text();
@@ -24,7 +34,10 @@ export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string |
         } else {
             sanitized = await sanitizeSvg(raw);
         }
-        setCachedSvg(url, sanitized);
+
+        if (usesSharedCache) {
+            setCachedSvg(url, sanitized);
+        }
         return sanitized;
     }
     return setUniversalCache(fetchAndSanitizeSvgImpl);
