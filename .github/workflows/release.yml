@@ -1,0 +1,51 @@
+name: Release
+
+# Publishes to npm when a GitHub Release is published. Bump the version in
+# package.json and tag it (e.g. via `npm version`) as part of preparing the
+# release, then publish the GitHub Release from that tag - this workflow
+# re-runs the full quality gate before publishing so a release can never
+# skip lint/typecheck/test/build.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # for npm provenance
+
+jobs:
+  publish:
+    name: Build, verify, and publish to npm
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - run: pnpm run typecheck:test
+      - run: pnpm run test
+      - run: pnpm run build
+      - run: pnpm run size
+
+      - name: Verify package.json version matches the release tag
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$PKG_VERSION" ]; then
+            echo "::error::Release tag ($GITHUB_REF_NAME) does not match package.json version ($PKG_VERSION)"
+            exit 1
+          fi
+
+      - name: Publish to npm
+        run: pnpm publish --access public --no-git-checks --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
