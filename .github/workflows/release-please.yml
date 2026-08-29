@@ -24,20 +24,6 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      # Temporary diagnostic: prints the rate-limit status for the exact
-      # RELEASE_PLEASE_TOKEN value this job actually has (never the token
-      # itself), to confirm it's a real, correctly-scoped token and not an
-      # empty/stale/mismatched secret. Safe to remove once release-please
-      # runs cleanly.
-      - name: Debug - check RELEASE_PLEASE_TOKEN rate limit and identity
-        run: |
-          echo "Token length: ${#TOKEN} chars (0 means the secret is empty)"
-          curl -sS -H "Authorization: Bearer $TOKEN" https://api.github.com/rate_limit | jq '{core: .resources.core, graphql: .resources.graphql}'
-          echo "--- identity this token authenticates as ---"
-          curl -sS -H "Authorization: Bearer $TOKEN" https://api.github.com/user | jq '{login, id}'
-        env:
-          TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-
       - uses: googleapis/release-please-action@v5
         with:
           # The default GITHUB_TOKEN cannot be used here: a release (and its
