@@ -26,7 +26,7 @@ npm install svgin-react dompurify jsdom
 npm install svgin-react
 ```
 
-> **Note:** This library uses [DOMPurify](https://github.com/cure53/DOMPurify) directly for sanitization. On the server, it uses [jsdom](https://github.com/jsdom/jsdom) together with DOMPurify. `dompurify` and `jsdom` are declared as peer dependencies: install `dompurify` for the client, and both `dompurify` and `jsdom` for the server. You do not need isomorphic-dompurify.
+> **Note:** This library uses [DOMPurify](https://github.com/cure53/DOMPurify) directly for sanitization. On the server, it uses [jsdom](https://github.com/jsdom/jsdom) together with DOMPurify. `dompurify` and `jsdom` are declared as optional peer dependencies: install them if you use the default sanitizer (client and server respectively); skip them if you always pass your own `sanitizeFn` or `disableSanitization`, since both are loaded lazily and only when the default sanitizer actually runs. You do not need isomorphic-dompurify.
 
 ---
 
@@ -98,7 +98,7 @@ Props:
 
 ## 🛡️ Security
 
-- By default, all SVGs are sanitized with DOMPurify (dynamically imported, not in bundle unless used).
+- By default, all SVGs are sanitized with DOMPurify (and, on the server, jsdom) via a dynamic `import()`, loaded lazily and cached on first use - so the cost (and, in a bundler, the bundle weight) is only paid if the default sanitizer actually runs.
 - You can provide your own `sanitizeFn` or **disable sanitization** if you trust your SVG source (no need to install dompurify/jsdom in that case).
 
 ---
