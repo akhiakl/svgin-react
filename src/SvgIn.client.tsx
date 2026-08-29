@@ -16,6 +16,13 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
     // all), so switching between the default sanitizer and a custom one -
     // an actual change in sanitization behavior, not just a new closure -
     // still triggers a refetch.
+    //
+    // Limitation: swapping one custom sanitizeFn for a *different* custom
+    // sanitizeFn (both non-undefined) does not trigger a refetch, since
+    // hasSanitizeFn stays true either way. The already-rendered SVG (from
+    // the old sanitizer) keeps showing until src or disableSanitization
+    // changes. If your sanitizeFn's behavior can change at runtime, either
+    // change src to force a refresh, or unmount and remount the component.
     const sanitizeFnRef = useRef(sanitizeFn);
     sanitizeFnRef.current = sanitizeFn;
     const hasSanitizeFn = sanitizeFn !== undefined;
