@@ -51,6 +51,8 @@
     }
   },
   "devDependencies": {
+    "@commitlint/cli": "21.2.2",
+    "@commitlint/config-conventional": "21.2.2",
     "@eslint/js": "^10.0.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
@@ -61,6 +63,7 @@
     "eslint": "^10.9.1",
     "eslint-plugin-react": "^7.37.5",
     "globals": "^17.11.0",
+    "husky": "9.1.7",
     "jiti": "^2.7.0",
     "jsdom": "^30.0.1",
     "react": "^19.2.8",
@@ -86,7 +89,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "size": "node scripts/check-bundle-size.mjs"
+    "size": "node scripts/check-bundle-size.mjs",
+    "commitlint": "commitlint",
+    "prepare": "husky"
   },
   "keywords": [
     "react",

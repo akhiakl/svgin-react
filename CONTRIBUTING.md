@@ -48,6 +48,10 @@ docs: fix a broken link in the README
 
 Allowed types: `fix`, `feat`, `perf`, `refactor`, `chore`, `test`, `docs`, `ci`, `build`. This is enforced automatically on every pull request.
 
+## Commit messages
+
+Individual commit messages also follow [Conventional Commits](https://www.conventionalcommits.org/), the same format as the pull request title above. This is checked on every commit locally (a `commit-msg` git hook, installed automatically by `pnpm install` via `husky`) and again in CI for every pull request.
+
 ## Security-sensitive changes
 
 This library exists to safely inline SVGs that may come from an untrusted source. If your change touches sanitization (`src/utils/sanitizeClient.ts`, `src/utils/sanitizeServer.ts`) or the SVG cache (`src/utils/svgCache.ts`, `src/utils/fetchAndSanitizeSvgBase.ts`, `src/preload.ts`), please:
