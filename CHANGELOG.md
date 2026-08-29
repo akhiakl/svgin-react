@@ -6,12 +6,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [0.7.0]
 
-- Fixed: the SVG cache no longer mixes results across sanitization modes. Fetching or preloading a URL with `disableSanitization` or a custom `sanitizeFn` could previously leak that result into the cache entry a later default-sanitized call to the same URL would read.
-- Fixed: `dompurify` and `jsdom` are now declared as optional peer dependencies, matching how they are actually used at runtime.
-- Changed: DOMPurify (and jsdom, on the server) are now loaded lazily and cached on first use, instead of being imported eagerly.
-- Changed: dropped unused dead code in the SVG rendering path.
-- Added: a test suite (vitest), covering the cache fix above with a regression test.
-- Added: CI running lint, typecheck, tests, build, and a bundle size budget on every pull request.
-- Added: a release workflow that publishes to npm when a GitHub Release is published.
+Initial version tracked before this changelog was introduced. See the git history for details.
 
-Earlier versions were not tracked in this changelog. See the git history for details.
+Everything merged to `main` after this version - the cache-poisoning and rejected-promise fixes, the `sanitizeFnKey` prop, the CI/coverage/lint hardening, and the release automation itself - has not been published to npm yet. release-please will generate the changelog entry for that work automatically once it cuts the next release.
