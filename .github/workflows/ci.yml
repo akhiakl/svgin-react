@@ -177,7 +177,7 @@ jobs:
         # On a PR from a fork, GITHUB_TOKEN is read-only and this step would
         # just fail; skip posting rather than failing the whole workflow.
         if: github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
