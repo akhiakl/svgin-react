@@ -98,7 +98,7 @@ Props:
 
 ## 🛡️ Security
 
-- By default, all SVGs are sanitized with DOMPurify (dynamically imported, not in bundle unless used).
+- By default, all SVGs are sanitized with DOMPurify (and, on the server, jsdom) via a dynamic `import()`, loaded lazily and cached on first use - so the cost (and, in a bundler, the bundle weight) is only paid if the default sanitizer actually runs.
 - You can provide your own `sanitizeFn` or **disable sanitization** if you trust your SVG source (no need to install dompurify/jsdom in that case).
 
 ---
