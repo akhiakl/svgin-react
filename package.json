@@ -1,13 +1,22 @@
 {
   "name": "svgin-react",
   "version": "0.7.0",
-  "description": "Securely fetch and inline SVGs as React components.",
+  "description": "Securely fetch and inline SVGs from URLs as React components, sanitized by default, with client and server support.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/client.d.ts",
+  "sideEffects": false,
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akhiakl/svgin-react.git"
+  },
+  "homepage": "https://github.com/akhiakl/svgin-react#readme",
+  "bugs": {
+    "url": "https://github.com/akhiakl/svgin-react/issues"
+  },
   "exports": {
     ".": {
       "react-server": "./dist/server.js",
@@ -91,8 +100,18 @@
     "inline",
     "component",
     "sanitize",
-    "dompurify"
+    "sanitize-svg",
+    "dompurify",
+    "xss",
+    "security",
+    "nextjs",
+    "rsc",
+    "react-server-components",
+    "typescript"
   ],
-  "author": "",
-  "license": "MIT"
+  "author": "Akhil K",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
 }

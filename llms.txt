@@ -1,0 +1,26 @@
+# svgin-react
+
+> A React library that fetches an SVG from a URL, sanitizes it, and renders it as a real inline `<svg>` element instead of an `<img>`. Works in client components and in React Server Components (Next.js app router, plain SSR).
+
+svgin-react solves one specific problem: you have an SVG at a URL (not bundled into your app), and you want to render it inline so you can style it with CSS and set its color with `fill`, while staying safe if the SVG comes from a source you do not fully control. It sanitizes the SVG with DOMPurify before rendering.
+
+## Key facts
+
+- Package name on npm: `svgin-react`.
+- Main export `SvgIn` auto-resolves to a client or server component depending on where it is imported from.
+- `svgin-react/client`, `svgin-react/server`, and `svgin-react/core` are separate entry points for tree-shaking.
+- Sanitization is on by default. It can be replaced with a custom `sanitizeFn` prop, or turned off with `disableSanitization` for fully trusted SVGs.
+- `dompurify` (and, for the server entry point, `jsdom`) are optional peer dependencies, only required if you use the default sanitizer.
+
+## Docs
+
+- [README.md](https://github.com/akhiakl/svgin-react/blob/main/README.md): install, usage, full API reference.
+- [SECURITY.md](https://github.com/akhiakl/svgin-react/blob/main/SECURITY.md): how sanitization works and how to report a vulnerability.
+- [CONTRIBUTING.md](https://github.com/akhiakl/svgin-react/blob/main/CONTRIBUTING.md): how to make a change and open a pull request.
+- [CHANGELOG.md](https://github.com/akhiakl/svgin-react/blob/main/CHANGELOG.md): what changed between versions.
+
+## Source
+
+- Repository: https://github.com/akhiakl/svgin-react
+- Package source: `src/` (see `src/SvgIn.client.tsx`, `src/SvgIn.server.tsx`, `src/utils/`)
+- Tests: `test/`

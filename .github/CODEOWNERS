@@ -1,0 +1,4 @@
+# Default owner for everything in this repo.
+# Used with a branch protection rule that requires a code owner review
+# before a pull request can be merged into main.
+* @akhiakl

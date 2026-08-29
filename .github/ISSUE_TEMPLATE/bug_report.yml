@@ -1,0 +1,54 @@
+name: Bug report
+description: Something is not working as expected
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you expect, and what actually happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: A small code sample that shows the problem. Include the SVG markup if it matters.
+      render: tsx
+    validations:
+      required: true
+
+  - type: input
+    id: svgin-version
+    attributes:
+      label: svgin-react version
+      placeholder: "0.7.0"
+    validations:
+      required: true
+
+  - type: input
+    id: react-version
+    attributes:
+      label: React version
+      placeholder: "19.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, Node version, and framework (e.g. Next.js app router), if relevant.
+      placeholder: "Next.js 15, Node 20, Chrome"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Is this a security issue?
+      description: If this bug lets a malicious SVG bypass sanitization, please do not fill out this form. Report it privately instead.
+      options:
+        - label: I confirm this is not a security vulnerability (see SECURITY.md if it is)
+          required: true
