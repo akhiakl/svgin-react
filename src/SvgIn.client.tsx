@@ -2,11 +2,23 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { SvgInProps } from './types';
 import { fetchAndSanitizeSvg } from './utils/fetchAndSanitizeSvgClient';
 import { SvgInComponent } from './SvgInComponent';
+import { nextInstanceId } from './utils/instanceId';
 
 export const SvgIn: React.FC<SvgInProps> = (props) => {
-    const { src, sanitizeFn, disableSanitization, ...rest } = props;
+    // title/description are pulled out of `rest` too: they're meant for the
+    // <title>/<desc> elements SvgInComponent injects into the rendered SVG,
+    // not for the raw placeholder <svg> below, which would otherwise treat
+    // `title` as a native tooltip attribute and warn on the unknown
+    // `description` attribute.
+    const { src, sanitizeFn, disableSanitization, title, description, ...rest } = props;
     const [svg, setSvg] = useState<string | null>(null);
     const [error, setError] = useState<Error | null>(null);
+    // Stable for the lifetime of this mounted component, so ids inside the
+    // rendered SVG don't change (and force a needless DOM update) on every
+    // re-render - only a fresh mount gets a new suffix, same as a real DOM
+    // element would.
+    const idSuffix = useRef<string | undefined>(undefined);
+    if (idSuffix.current === undefined) idSuffix.current = nextInstanceId();
 
     // sanitizeFn is read from a ref rather than depended on directly:
     // consumers commonly pass an inline arrow function, whose identity
@@ -47,5 +59,5 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
             />
         );
     }
-    return <SvgInComponent svg={svg} {...rest} />;
+    return <SvgInComponent svg={svg} title={title} description={description} idSuffix={idSuffix.current} {...rest} />;
 };

@@ -1,20 +1,39 @@
 # svgin-react
 
 [![npm version](https://img.shields.io/npm/v/svgin-react.svg)](https://npmjs.com/package/svgin-react)
+[![npm downloads](https://img.shields.io/npm/dm/svgin-react.svg)](https://npmjs.com/package/svgin-react)
+[![minzipped size](https://img.shields.io/bundlephobia/minzip/svgin-react)](https://bundlephobia.com/package/svgin-react)
 [![CI](https://github.com/akhiakl/svgin-react/actions/workflows/ci.yml/badge.svg)](https://github.com/akhiakl/svgin-react/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Fetch an SVG from a URL and render it as a real React element (not an `<img>`), so you can style it with CSS and change its color with `fill`.
+Fetch an SVG from a URL and render it as a real, styleable React element — not an `<img>`. Sanitized by default, so it's safe with SVGs you didn't create yourself. Works in the browser and in React Server Components (Next.js App Router, plain SSR, and everywhere else).
 
-The SVG is sanitized before it is rendered, so it is safe to use with SVGs you did not create yourself.
+```tsx
+import { SvgIn } from 'svgin-react';
 
-Works in the browser and in React Server Components (Next.js app router, plain SSR, etc).
+<SvgIn src="/icons/alert.svg" width={24} fill="#f00" />
+```
 
 ## Why not just use an `<img>` tag?
 
-An `<img src="icon.svg">` cannot be styled with CSS. You cannot change its color, animate its paths, or target its inner elements. To do any of that, the SVG markup has to be inlined into the page.
+An `<img src="icon.svg">` can't be styled with CSS: no color changes, no path animation, no targeting inner elements. To do any of that, the SVG markup has to be inlined into the page.
 
-Inlining raw SVG markup from a URL you do not fully control is a real security risk: an SVG can contain `<script>` tags, `onload` handlers, and other ways to run JavaScript. This library fetches the SVG, sanitizes it, and inlines it as a normal React element.
+Inlining raw SVG markup from a URL you don't fully control is a real security risk — an SVG can carry `<script>` tags, `onload` handlers, and other ways to run JavaScript. svgin-react fetches the SVG, sanitizes it with [DOMPurify](https://github.com/cure53/DOMPurify), and inlines it as a normal React element.
+
+## Why svgin-react over react-svg or react-inlinesvg?
+
+|                                       | **svgin-react** | react-svg | react-inlinesvg |
+| ------------------------------------- | :--------------: | :-------: | :--------------: |
+| Sanitized by default                  |        ✅         | opt-in only | ❌ none          |
+| Minzipped size (client entry)         |     **~2 KB**     |   ~3.9 KB  |     ~7.8 KB       |
+| React Server Components support       |        ✅         |     ❌     |        ❌         |
+| Real React element (not DOM injection)|        ✅         |     ❌     |        ✅         |
+| Forced runtime dependency             |    none (optional peers) | `@tanem/svg-injector` | `react-from-dom` |
+| Multi-instance id collision handling  |        ✅         |     ✅     |        ✅         |
+| `title` / `desc` accessibility props  |        ✅         |     ✅     |        ✅         |
+| npm provenance (verified build)       |        ✅         |     —      |        —          |
+
+Sizes measured with the same tooling (esbuild, minified, gzipped, `react`/`react-dom` externalized) as this repo's own [bundle-size budget check](scripts/check-bundle-size.mjs) — see [`llms.txt`](llms.txt) for the raw numbers. react-inlinesvg in particular ships with no sanitization option at all, opt-in or otherwise.
 
 ## Install
 
@@ -32,7 +51,7 @@ npm install dompurify
 npm install dompurify jsdom
 ```
 
-If you always pass your own `sanitizeFn`, or you always use `disableSanitization` (only do this for SVGs you trust completely), you do not need to install `dompurify` or `jsdom` at all.
+If you always pass your own `sanitizeFn`, or always use `disableSanitization` (only for SVGs you trust completely), you don't need `dompurify` or `jsdom` at all — they're optional peer dependencies, loaded lazily only when the default sanitizer actually runs.
 
 ## Usage
 
@@ -44,7 +63,7 @@ export default function AlertIcon() {
 }
 ```
 
-This one import works in both a client component and a server component. In a Next.js app router file, add `'use client'` at the top if you specifically want the client version.
+This one import works in both a client component and a server component. In a Next.js App Router file, add `'use client'` at the top if you specifically want the client version.
 
 If you need to force one or the other:
 
@@ -64,7 +83,7 @@ Works with any React 19+ setup: Next.js (Pages Router and App Router), Remix, Vi
 
 ### Preloading
 
-`preloadSvg` fetches and sanitizes a URL ahead of time, so a later `<SvgIn src={url} />` for the same URL resolves from the cache instead of fetching again. It is `async`, so await it (or handle a rejected fetch) rather than treating it as fire-and-forget:
+`preloadSvg` fetches and sanitizes a URL ahead of time, so a later `<SvgIn src={url} />` for the same URL resolves from the cache instead of fetching again. It's `async`, so await it (or handle a rejected fetch) rather than treating it as fire-and-forget:
 
 ```ts
 import { preloadSvg } from 'svgin-react/core';
@@ -95,10 +114,14 @@ await preloadSvg('/icons/alert.svg', {
 | `fallback` | `ReactNode` | Rendered if the fetch or sanitization fails. |
 | `className` | `string` | Applied to the rendered `<svg>` element. |
 | `ariaLabel` | `string` | Sets `aria-label` on the rendered `<svg>` element. |
+| `title` | `string` | Injects an accessible `<title>` (also shown as a tooltip in most browsers). |
+| `description` | `string` | Injects an accessible `<desc>` — a longer description than `title`. |
 | `sanitizeFn` | `(svg: string) => Promise<string>` | Replace the default sanitizer with your own. |
 | `disableSanitization` | `boolean` | Skip sanitization entirely. Only use this for SVGs you trust. |
 
 Source SVG attributes (`viewBox`, `preserveAspectRatio`, `xmlns`, etc.) are automatically forwarded from the fetched SVG to the rendered element. Explicit props (`width`, `height`, `fill`, `className`, `ariaLabel`) always take precedence.
+
+Internal ids (on `<linearGradient>`, `<clipPath>`, `<mask>`, `<filter>`, etc.) are automatically made unique per rendered instance, so two `<SvgIn>` copies of the same icon on one page never collide over a shared gradient or clip path.
 
 > **`sanitizeFn` identity note:** switching from *no* custom sanitizer to *any* custom sanitizer (or back) triggers a re-fetch. Replacing one custom sanitizer with a *different* one while `sanitizeFn` is already defined does **not** trigger a re-fetch, because the component tracks presence rather than identity to avoid unnecessary re-fetches from inline arrow functions. If you need to force a re-fetch when the sanitizer logic changes, change the `src` prop or remount the component.
 
@@ -123,7 +146,9 @@ Import from a specific entry point to keep your bundle small:
 
 - SVGs are sanitized with DOMPurify by default. On the server, DOMPurify runs inside a jsdom window.
 - DOMPurify (and jsdom, on the server) are loaded lazily on first use, so you only pay for them if the default sanitizer actually runs.
+- Fetch responses are checked against their `Content-Type` header, so an unexpected non-SVG response (e.g. an HTML error page from a misbehaving server) is rejected instead of being sanitized and rendered anyway.
 - You can supply your own `sanitizeFn`, or set `disableSanitization`, if you trust the SVG source and want to skip the default sanitizer.
+- Published bundles carry [npm provenance](https://docs.npmjs.com/generating-provenance-statements) attestations, so you can verify a release was built from this exact repository by GitHub Actions, not published from someone's laptop.
 - See [SECURITY.md](SECURITY.md) for how to report a vulnerability.
 
 ## Examples
@@ -138,6 +163,12 @@ Disable sanitization (only for SVGs you trust):
 
 ```tsx
 <SvgIn src="/icons/alert.svg" disableSanitization />
+```
+
+Accessible name and description:
+
+```tsx
+<SvgIn src="/icons/alert.svg" title="Alert" description="Indicates a warning that needs attention" />
 ```
 
 ## Development
@@ -161,7 +192,7 @@ Releases are automated with [release-please](https://github.com/googleapis/relea
 
 1. `release-please.yml` watches `main` and keeps a standing "chore(main): release X.Y.Z" pull request up to date, with `package.json`'s version bump and a generated `CHANGELOG.md` entry computed from every `feat:`/`fix:`/etc. commit merged since the last release.
 2. Merging that pull request creates the GitHub Release and tag.
-3. That Release publishing triggers `release.yml`, which re-runs the full lint/typecheck/test/build/size gate against the tagged commit and publishes to npm using [trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC) - no npm token stored in this repo.
+3. That Release publishing triggers `release.yml`, which re-runs the full lint/typecheck/test/build/size gate against the tagged commit and publishes to npm using [trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC) — no npm token stored in this repo.
 
 So: to ship what's on `main`, find and merge the open release-please pull request. Nothing to run locally.
 

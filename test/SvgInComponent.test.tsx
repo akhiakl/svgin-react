@@ -67,4 +67,46 @@ describe('SvgInComponent', () => {
         const { container } = render(<SvgInComponent svg={null} />);
         expect(container.firstChild).toBeNull();
     });
+
+    it('injects a <title> and <desc> when title/description are provided, title first', () => {
+        const { container } = render(
+            <SvgInComponent svg={'<svg><path/></svg>'} title="Alert icon" description="Warns the user" />
+        );
+        const svg = container.querySelector('svg');
+        expect(svg?.querySelector('title')?.textContent).toBe('Alert icon');
+        expect(svg?.querySelector('desc')?.textContent).toBe('Warns the user');
+        // title must be the first child per SVG accessibility conventions.
+        expect(svg?.firstElementChild?.tagName.toLowerCase()).toBe('title');
+    });
+
+    it('does not inject title/desc elements when not provided', () => {
+        const { container } = render(<SvgInComponent svg={'<svg><path/></svg>'} />);
+        const svg = container.querySelector('svg');
+        expect(svg?.querySelector('title')).toBeNull();
+        expect(svg?.querySelector('desc')).toBeNull();
+    });
+
+    it('uniquifies internal ids when idSuffix is provided, avoiding collisions between instances', () => {
+        const svg = '<svg><defs><linearGradient id="g"/></defs><rect fill="url(#g)"/></svg>';
+        const { container } = render(
+            <>
+                <SvgInComponent svg={svg} idSuffix="a" />
+                <SvgInComponent svg={svg} idSuffix="b" />
+            </>
+        );
+        const gradients = container.querySelectorAll('linearGradient');
+        expect(gradients).toHaveLength(2);
+        expect(gradients[0].id).not.toBe(gradients[1].id);
+        // Each rect's fill must reference its own instance's gradient, not the other's.
+        const rects = container.querySelectorAll('rect');
+        expect(rects[0].getAttribute('fill')).toBe(`url(#${gradients[0].id})`);
+        expect(rects[1].getAttribute('fill')).toBe(`url(#${gradients[1].id})`);
+    });
+
+    it('leaves ids untouched when idSuffix is not provided', () => {
+        const { container } = render(
+            <SvgInComponent svg={'<svg><linearGradient id="g"/></svg>'} />
+        );
+        expect(container.querySelector('linearGradient')?.id).toBe('g');
+    });
 });

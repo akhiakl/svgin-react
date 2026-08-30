@@ -1,6 +1,16 @@
 import React from 'react';
 import type { SvgInProps } from './types';
-import { extractSvgAttrs, extractSvgInner } from './utils/svgUtils';
+import { extractSvgAttrs, extractSvgInner, uniquifyIds } from './utils/svgUtils';
+
+/**
+ * Minimal HTML-escaping for text inserted into `<title>`/`<desc>` via
+ * dangerouslySetInnerHTML. title/description come from the consumer's own
+ * code (not the untrusted fetched SVG), so this is about not breaking the
+ * surrounding markup on stray `<`/`&`, not sanitization.
+ */
+function escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 /**
  * Parses the attribute string from the source `<svg>` opening tag and returns
@@ -33,18 +43,15 @@ function parseSvgAttrs(attrString: string): Record<string, string> {
  * `preserveAspectRatio`) are forwarded to the rendered element. Explicit
  * props passed by the consumer always take precedence.
  */
-export const SvgInComponent: React.FC<Omit<SvgInProps, 'src' | 'sanitizeFn'> & { svg: string | null }> = ({
-    svg,
-    width,
-    height,
-    fill,
-    fallback = null,
-    className,
-    ariaLabel,
-}) => {
+export const SvgInComponent: React.FC<
+    Omit<SvgInProps, 'src' | 'sanitizeFn'> & { svg: string | null; idSuffix?: string }
+> = ({ svg, width, height, fill, fallback = null, className, ariaLabel, title, description, idSuffix }) => {
     if (!svg) return fallback;
-    const inner = extractSvgInner(svg);
+    let inner = extractSvgInner(svg);
     if (inner !== null) {
+        if (idSuffix) inner = uniquifyIds(inner, idSuffix);
+        if (description) inner = `<desc>${escapeHtml(description)}</desc>${inner}`;
+        if (title) inner = `<title>${escapeHtml(title)}</title>${inner}`;
         const sourceAttrs = parseSvgAttrs(extractSvgAttrs(svg));
         return (
             <svg

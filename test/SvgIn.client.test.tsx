@@ -135,4 +135,40 @@ describe('SvgIn (client component)', () => {
             expect.objectContaining({ sanitizeFn: customFn, disableSanitization: false })
         );
     });
+
+    it('renders a <title> from the title prop and does not leak it onto the loading placeholder', async () => {
+        mockFetch.mockReturnValue(new Promise(() => {})); // stays in the loading state
+        const { container } = render(<SvgIn src="/a.svg" title="Alert icon" />);
+        // React's `title` prop on a raw DOM element becomes a native tooltip
+        // attribute - it must not appear on the loading placeholder.
+        expect(container.querySelector('svg')).not.toHaveAttribute('title');
+    });
+
+    it('keeps internal ids stable (same suffix) across re-renders of the same mounted instance', async () => {
+        const svg = '<svg><linearGradient id="g"/><rect fill="url(#g)"/></svg>';
+        mockFetch.mockResolvedValue(svg);
+
+        const { container, rerender } = render(<SvgIn src="/a.svg" width={16} />);
+        await waitFor(() => expect(container.querySelector('linearGradient')).not.toBeNull());
+        const firstId = container.querySelector('linearGradient')!.id;
+
+        rerender(<SvgIn src="/a.svg" width={32} />);
+        await waitFor(() => expect(container.querySelector('svg')).toHaveAttribute('width', '32'));
+        expect(container.querySelector('linearGradient')!.id).toBe(firstId);
+    });
+
+    it('gives two separate mounted instances of the same icon distinct internal ids', async () => {
+        const svg = '<svg><linearGradient id="g"/><rect fill="url(#g)"/></svg>';
+        mockFetch.mockResolvedValue(svg);
+
+        const { container } = render(
+            <>
+                <SvgIn src="/a.svg" />
+                <SvgIn src="/a.svg" />
+            </>
+        );
+        await waitFor(() => expect(container.querySelectorAll('linearGradient')).toHaveLength(2));
+        const [first, second] = container.querySelectorAll('linearGradient');
+        expect(first.id).not.toBe(second.id);
+    });
 });

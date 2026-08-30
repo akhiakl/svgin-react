@@ -32,3 +32,35 @@ export function extractSvgAttrs(svg: string): string {
     // Content between "<svg" (4 chars) and the closing ">" of the opening tag.
     return svg.slice(4, openEnd).trim();
 }
+
+/**
+ * Rewrites every `id="..."` in the SVG, and every internal reference to
+ * those ids (`url(#id)`, `href="#id"`, `xlink:href="#id"`), by appending a
+ * suffix - so that multiple instances of the same icon rendered on one page
+ * don't silently share (and fight over) the same `<linearGradient>`,
+ * `<clipPath>`, `<mask>`, or `<filter>` definition via a collided id.
+ *
+ * Only touches references that match an id actually defined in this SVG; an
+ * `href` pointing to an external file/URL fragment is left untouched. Uses
+ * bounded character classes (no `[\s\S]*`-style quantifiers) for the same
+ * reason extractSvgInner does - avoiding catastrophic backtracking on large
+ * or malformed input.
+ */
+export function uniquifyIds(svg: string, suffix: string): string {
+    const ids = new Set<string>();
+    const idRe = /\bid="([^"]+)"/g;
+    let m: RegExpExecArray | null;
+    while ((m = idRe.exec(svg)) !== null) {
+        ids.add(m[1]);
+    }
+    if (ids.size === 0) return svg;
+
+    return svg
+        // Every id="..." this matches was already found by the scan above
+        // (same pattern), so it is always in `ids` - no membership check needed.
+        .replace(/\bid="([^"]+)"/g, (_full, id: string) => `id="${id}-${suffix}"`)
+        .replace(/url\(#([^)"']+)\)/g, (full, id: string) => (ids.has(id) ? `url(#${id}-${suffix})` : full))
+        .replace(/((?:xlink:)?href)="#([^"]+)"/g, (full, attr: string, id: string) =>
+            ids.has(id) ? `${attr}="#${id}-${suffix}"` : full
+        );
+}
