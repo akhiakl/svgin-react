@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/). [release-please](https://github.com/googleapis/release-please) generates entries here automatically from Conventional Commits on every release - do not hand-edit below this point.
 
+## [0.8.0](https://github.com/akhiakl/svgin-react/compare/v0.7.2...v0.8.0) (2026-09-01)
+
+
+### Features
+
+* add onError/onMount callbacks and aria wiring for title/description ([10bd249](https://github.com/akhiakl/svgin-react/commit/10bd24928146b637f3ca66e484bc285a4ba3a231))
+* add title/description props and per-instance id uniquification ([b8f6163](https://github.com/akhiakl/svgin-react/commit/b8f61637591c039322529c1b57d0d0cb4a83b694))
+* add title/description props and per-instance id uniquification ([5c7966b](https://github.com/akhiakl/svgin-react/commit/5c7966bef9c3f8ee68918c6eefb05b1eb7ffb911))
+
+
+### Bug Fixes
+
+* remove unused param lint error in universalCache dedup test ([386580c](https://github.com/akhiakl/svgin-react/commit/386580c4b0d92b4435a4eb3ae504e8fabd291e11))
+
+
+### Documentation
+
+* remove duplicate/phantom changelog entries ([3a8acb3](https://github.com/akhiakl/svgin-react/commit/3a8acb39ffb28324650e5f52497e0e9f1646b139))
+* remove duplicate/phantom changelog entries ([b6d6a2c](https://github.com/akhiakl/svgin-react/commit/b6d6a2c11065b01a3df837e34114fce04dbd3536))
+
 ## [0.7.2](https://github.com/akhiakl/svgin-react/compare/v0.7.0...v0.7.2) (2026-08-29)
 
 The first version actually published to npm since this changelog was introduced. `0.7.1` was tagged and released on GitHub but never reached npm (a bug in this repo's own publish workflow caught it first) - it's a phantom version and does not exist on the npm registry, so this jumps straight from the `0.7.0` baseline below.
