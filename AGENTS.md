@@ -68,6 +68,12 @@ pnpm run test:e2e
 - Keep pull requests focused on one change. Do not mix unrelated fixes.
 - Never commit build output (`dist/`) or `node_modules/`.
 
+### Release scope
+
+release-please (see `release-please-config.json`) decides the npm package's version bump - and therefore whether a merge to `main` triggers a real `npm publish` - purely by scanning commit **types** (`feat:`/`fix:`/a `!` breaking marker) across the whole repository. It has no path filtering: a `feat:`/`fix:` commit that only touches `site/`, `test/`, e2e config, docs, or workflow files still triggers a version bump and a real publish, with nothing actually changed in the published package. This happened once already (a `site/`-only commit was typed `feat:` and had to be reworded before merge).
+
+So: **`feat:`/`fix:` are reserved for changes to `src/` (or `package.json`'s `dependencies`/`peerDependencies`/`exports`/`main`/`module`/`types`/`files`/`sideEffects`, or `tsup.config.ts`)** - i.e. anything that actually changes what gets published. A change confined to `site/`, `test/`, `site/e2e/`, docs, or CI/deploy workflow files must use `chore:`/`docs:`/`test:`/`ci:`/`build:`, even if it adds a real feature to the site or test suite. `scripts/check-release-scope.mjs` enforces this in CI (the "Commit messages" job) - it fails the PR if any `feat:`/`fix:` commit in range does not touch something package-relevant, naming the commit and its changed files.
+
 ## Security
 
 Do not weaken or remove SVG sanitization to "simplify" code, and do not suggest removing the DOMPurify dependency as a size optimization. Inlining unsanitized SVG markup from an untrusted source is a real XSS vector; see [SECURITY.md](SECURITY.md) for the project's threat model and how to report a vulnerability.
