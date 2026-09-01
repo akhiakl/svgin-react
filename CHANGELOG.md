@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/). [release-please](https://github.com/googleapis/release-please) generates entries here automatically from Conventional Commits on every release - do not hand-edit below this point.
 
+## [0.9.0](https://github.com/akhiakl/svgin-react/compare/v0.8.0...v0.9.0) (2026-09-01)
+
+
+### Features
+
+* add svg prop, SvgInSuspense, SvgInProvider, loadingFallback, and lazy loading ([8d41bd4](https://github.com/akhiakl/svgin-react/commit/8d41bd402311e7672ce16a24b697cb5f910714da))
+* add svg prop, SvgInSuspense, SvgInProvider, loadingFallback, and lazy loading ([33d525c](https://github.com/akhiakl/svgin-react/commit/33d525c0a3f8d202d5764f9e0b3e21fc0449a470))
+
+
+### Bug Fixes
+
+* address Copilot review findings on lazy loading and Suspense onError ([7a9a981](https://github.com/akhiakl/svgin-react/commit/7a9a98125e09763223975a65d04bd841c755cedd))
+
+
+### Documentation
+
+* add SVGR (@svgr/core) comparison to README and llms.txt ([ebde99b](https://github.com/akhiakl/svgin-react/commit/ebde99b05a5440196210268eb6963e2ec880b03c))
+* explain Socket/scanner alerts on jsdom's dependency tree in SECURITY.md ([46c4fcb](https://github.com/akhiakl/svgin-react/commit/46c4fcba00f0c90921ebee5ceb22d53c03deedde))
+
 ## [0.8.0](https://github.com/akhiakl/svgin-react/compare/v0.7.2...v0.8.0) (2026-09-01)
 
 
