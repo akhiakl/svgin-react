@@ -9,7 +9,7 @@ vi.mock('../src/utils/sanitizeSvgStringClient', () => ({
     sanitizeSvgString: vi.fn(),
 }));
 
-import { SvgInSuspense } from '../src/SvgIn.suspense.client';
+import { SvgInSuspense, clearSuspensePromiseCache } from '../src/SvgIn.suspense.client';
 import { fetchAndSanitizeSvg } from '../src/utils/fetchAndSanitizeSvgClient';
 import { sanitizeSvgString } from '../src/utils/sanitizeSvgStringClient';
 
@@ -36,10 +36,17 @@ class ErrorBoundary extends React.Component<
 describe('SvgInSuspense (client component)', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        // resolvePromise pins one promise per (src, svg, sanitizeFn,
+        // disableSanitization) key at module scope (see its own comment) -
+        // without this, tests that reuse the same src ("/missing.svg" etc.)
+        // would get an earlier test's stale (already-settled) promise
+        // instead of the fresh one this test's mock sets up.
+        clearSuspensePromiseCache();
     });
 
     afterEach(() => {
         vi.clearAllMocks();
+        clearSuspensePromiseCache();
     });
 
     it('shows the Suspense fallback while pending, then the resolved svg', async () => {
@@ -81,6 +88,36 @@ describe('SvgInSuspense (client component)', () => {
             reject(new Error('boom'));
         });
         expect(container.textContent).toBe('caught: boom');
+    });
+
+    it('does not re-fetch on every render of a persistently failing src (regression: infinite retry loop)', async () => {
+        // Regression test for a real bug: fetchAndSanitizeSvg's own cache
+        // (setUniversalCache) evicts a rejected entry as soon as it settles,
+        // so that calling it fresh on every render - as this component does
+        // - used to hand React a brand-new pending promise on each of its
+        // own retry-on-settle re-renders, which rejected again, evicted
+        // again, and so on forever (confirmed against a real fetch mock:
+        // 85+ calls/second, never reaching the error boundary). resolvePromise
+        // now pins one promise per key independently of that eviction - so
+        // even though this mock returns a *new* rejected promise on every
+        // call (simulating the evicted-cache scenario exactly), it should
+        // still only be called once.
+        let callCount = 0;
+        mockFetch.mockImplementation(() => Promise.reject(new Error(`boom ${callCount++}`)));
+
+        let container!: HTMLElement;
+        await act(async () => {
+            ({ container } = render(
+                <ErrorBoundary>
+                    <React.Suspense fallback={<span>loading...</span>}>
+                        <SvgInSuspense src="/permanently-broken.svg" />
+                    </React.Suspense>
+                </ErrorBoundary>
+            ));
+        });
+
+        expect(container.textContent).toBe('caught: boom 0');
+        expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
     it('still calls onError as a side notification alongside the error boundary catching it', async () => {
@@ -172,6 +209,32 @@ describe('SvgInSuspense (client component)', () => {
         expect(container.querySelector('circle')).not.toBeNull();
         expect(mockFetch).not.toHaveBeenCalled();
         expect(mockSanitizeString).toHaveBeenCalledWith('<svg><circle/></svg>', expect.anything());
+    });
+
+    it('reuses one cache entry for the same svg regardless of an accompanying (ignored) src', async () => {
+        // Regression test: the cache key used to include `src` unconditionally,
+        // even though svgProp takes precedence and src is never read when it's
+        // set - so two renders with the same svg but a different (irrelevant)
+        // src used to sanitize twice instead of sharing one cache entry.
+        mockSanitizeString.mockResolvedValue('<svg><circle/></svg>');
+
+        await act(async () => {
+            render(
+                <React.Suspense fallback={<span>loading...</span>}>
+                    <SvgInSuspense svg="<svg><circle/></svg>" src="/a.svg" />
+                </React.Suspense>
+            );
+        });
+        await act(async () => {
+            render(
+                <React.Suspense fallback={<span>loading...</span>}>
+                    <SvgInSuspense svg="<svg><circle/></svg>" src="/b.svg" />
+                </React.Suspense>
+            );
+        });
+
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(mockSanitizeString).toHaveBeenCalledTimes(1);
     });
 
     it('is caught by the nearest error boundary when neither src nor svg is given', async () => {
