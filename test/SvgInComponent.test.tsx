@@ -67,4 +67,97 @@ describe('SvgInComponent', () => {
         const { container } = render(<SvgInComponent svg={null} />);
         expect(container.firstChild).toBeNull();
     });
+
+    it('injects a <title> and <desc> when title/description are provided, title first', () => {
+        const { container } = render(
+            <SvgInComponent svg={'<svg><path/></svg>'} title="Alert icon" description="Warns the user" />
+        );
+        const svg = container.querySelector('svg');
+        expect(svg?.querySelector('title')?.textContent).toBe('Alert icon');
+        expect(svg?.querySelector('desc')?.textContent).toBe('Warns the user');
+        // title must be the first child per SVG accessibility conventions.
+        expect(svg?.firstElementChild?.tagName.toLowerCase()).toBe('title');
+    });
+
+    it('does not inject title/desc elements when not provided', () => {
+        const { container } = render(<SvgInComponent svg={'<svg><path/></svg>'} />);
+        const svg = container.querySelector('svg');
+        expect(svg?.querySelector('title')).toBeNull();
+        expect(svg?.querySelector('desc')).toBeNull();
+    });
+
+    it('uniquifies internal ids when idSuffix is provided, avoiding collisions between instances', () => {
+        const svg = '<svg><defs><linearGradient id="g"/></defs><rect fill="url(#g)"/></svg>';
+        const { container } = render(
+            <>
+                <SvgInComponent svg={svg} idSuffix="a" />
+                <SvgInComponent svg={svg} idSuffix="b" />
+            </>
+        );
+        const gradients = container.querySelectorAll('linearGradient');
+        expect(gradients).toHaveLength(2);
+        expect(gradients[0].id).not.toBe(gradients[1].id);
+        // Each rect's fill must reference its own instance's gradient, not the other's.
+        const rects = container.querySelectorAll('rect');
+        expect(rects[0].getAttribute('fill')).toBe(`url(#${gradients[0].id})`);
+        expect(rects[1].getAttribute('fill')).toBe(`url(#${gradients[1].id})`);
+    });
+
+    it('leaves ids untouched when idSuffix is not provided', () => {
+        const { container } = render(
+            <SvgInComponent svg={'<svg><linearGradient id="g"/></svg>'} />
+        );
+        expect(container.querySelector('linearGradient')?.id).toBe('g');
+    });
+
+    it('wires aria-labelledby to the injected title id when title is provided', () => {
+        const { container } = render(
+            <SvgInComponent svg={'<svg><path/></svg>'} title="Alert icon" idSuffix="x" />
+        );
+        const svg = container.querySelector('svg');
+        const titleEl = svg?.querySelector('title');
+        expect(titleEl?.id).toBeTruthy();
+        expect(svg).toHaveAttribute('aria-labelledby', titleEl!.id);
+    });
+
+    it('wires aria-describedby to the injected desc id when description is provided', () => {
+        const { container } = render(
+            <SvgInComponent svg={'<svg><path/></svg>'} description="Warns the user" idSuffix="x" />
+        );
+        const svg = container.querySelector('svg');
+        const descEl = svg?.querySelector('desc');
+        expect(descEl?.id).toBeTruthy();
+        expect(svg).toHaveAttribute('aria-describedby', descEl!.id);
+    });
+
+    it('wires both aria-labelledby and aria-describedby when both title and description are provided', () => {
+        const { container } = render(
+            <SvgInComponent svg={'<svg><path/></svg>'} title="Alert icon" description="Warns the user" idSuffix="x" />
+        );
+        const svg = container.querySelector('svg');
+        expect(svg).toHaveAttribute('aria-labelledby', svg?.querySelector('title')?.id);
+        expect(svg).toHaveAttribute('aria-describedby', svg?.querySelector('desc')?.id);
+    });
+
+    it('lets an explicit ariaLabel win over the auto-wired aria-labelledby', () => {
+        const { container } = render(
+            <SvgInComponent svg={'<svg><path/></svg>'} title="Alert icon" ariaLabel="Custom label" idSuffix="x" />
+        );
+        const svg = container.querySelector('svg');
+        expect(svg).toHaveAttribute('aria-label', 'Custom label');
+        expect(svg).not.toHaveAttribute('aria-labelledby');
+    });
+
+    it('does not set aria-labelledby/aria-describedby when title/description are absent', () => {
+        const { container } = render(<SvgInComponent svg={'<svg><path/></svg>'} />);
+        const svg = container.querySelector('svg');
+        expect(svg).not.toHaveAttribute('aria-labelledby');
+        expect(svg).not.toHaveAttribute('aria-describedby');
+    });
+
+    it('forwards a ref to the rendered svg element', () => {
+        const ref = { current: null as SVGSVGElement | null };
+        render(<SvgInComponent svg={'<svg><path/></svg>'} ref={ref} />);
+        expect(ref.current).toBeInstanceOf(SVGSVGElement);
+    });
 });

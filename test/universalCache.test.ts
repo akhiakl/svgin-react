@@ -208,6 +208,25 @@ describe('setUniversalCache (fallback in-memory cache)', () => {
         expect(impl).toHaveBeenCalledTimes(2);
     });
 
+    it('shares a single underlying call between two concurrent (unawaited) calls with the same key', async () => {
+        // Proves request deduplication: two overlapping calls for the same
+        // arguments, made before either has resolved, must only invoke fn
+        // once. This holds by construction because the cache stores the
+        // Promise synchronously (before any `await`), so the second call's
+        // `inMemoryCache.has(key)` check sees it before fn would run again.
+        let resolve!: (v: string) => void;
+        const impl = vi.fn((key: string) => { void key; return new Promise<string>(r => { resolve = r; }); });
+        const cached = setUniversalCache(impl);
+
+        const first = cached('same-key');
+        const second = cached('same-key');
+        expect(impl).toHaveBeenCalledTimes(1);
+
+        resolve('shared result');
+        await expect(first).resolves.toBe('shared result');
+        await expect(second).resolves.toBe('shared result');
+    });
+
     it('does not collide -0 with 0 in the cache key', () => {
         const impl = vi.fn((n: number) => (1 / n === Infinity ? 'positive-zero' : 'negative-zero'));
         const cached = setUniversalCache(impl);

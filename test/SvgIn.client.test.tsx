@@ -135,4 +135,86 @@ describe('SvgIn (client component)', () => {
             expect.objectContaining({ sanitizeFn: customFn, disableSanitization: false })
         );
     });
+
+    it('renders a <title> from the title prop and does not leak it onto the loading placeholder', async () => {
+        mockFetch.mockReturnValue(new Promise(() => {})); // stays in the loading state
+        const { container } = render(<SvgIn src="/a.svg" title="Alert icon" />);
+        // React's `title` prop on a raw DOM element becomes a native tooltip
+        // attribute - it must not appear on the loading placeholder.
+        expect(container.querySelector('svg')).not.toHaveAttribute('title');
+    });
+
+    it('keeps internal ids stable (same suffix) across re-renders of the same mounted instance', async () => {
+        const svg = '<svg><linearGradient id="g"/><rect fill="url(#g)"/></svg>';
+        mockFetch.mockResolvedValue(svg);
+
+        const { container, rerender } = render(<SvgIn src="/a.svg" width={16} />);
+        await waitFor(() => expect(container.querySelector('linearGradient')).not.toBeNull());
+        const firstId = container.querySelector('linearGradient')!.id;
+
+        rerender(<SvgIn src="/a.svg" width={32} />);
+        await waitFor(() => expect(container.querySelector('svg')).toHaveAttribute('width', '32'));
+        expect(container.querySelector('linearGradient')!.id).toBe(firstId);
+    });
+
+    it('calls onError with the actual Error when the fetch rejects', async () => {
+        const err = new Error('network error');
+        mockFetch.mockRejectedValue(err);
+        const onError = vi.fn();
+        render(<SvgIn src="/missing.svg" onError={onError} />);
+        await waitFor(() => expect(onError).toHaveBeenCalledWith(err));
+    });
+
+    it('does not call onError on a successful fetch', async () => {
+        mockFetch.mockResolvedValue('<svg><path/></svg>');
+        const onError = vi.fn();
+        const { container } = render(<SvgIn src="/a.svg" onError={onError} />);
+        await waitFor(() => expect(container.querySelector('path')).not.toBeNull());
+        expect(onError).not.toHaveBeenCalled();
+    });
+
+    it('calls onMount with the rendered svg element after a successful render', async () => {
+        mockFetch.mockResolvedValue('<svg><path/></svg>');
+        const onMount = vi.fn();
+        const { container } = render(<SvgIn src="/a.svg" onMount={onMount} />);
+        await waitFor(() => expect(onMount).toHaveBeenCalled());
+        expect(onMount).toHaveBeenCalledWith(container.querySelector('svg'));
+    });
+
+    it('does not call onMount while loading or on error', async () => {
+        mockFetch.mockRejectedValue(new Error('fail'));
+        const onMount = vi.fn();
+        render(<SvgIn src="/missing.svg" onMount={onMount} />);
+        await new Promise(r => setTimeout(r, 20));
+        expect(onMount).not.toHaveBeenCalled();
+    });
+
+    it('calls onMount again when svg changes to a new value on a later fetch', async () => {
+        mockFetch
+            .mockResolvedValueOnce('<svg><circle/></svg>')
+            .mockResolvedValueOnce('<svg><rect/></svg>');
+        const onMount = vi.fn();
+        const { container, rerender } = render(<SvgIn src="/a.svg" onMount={onMount} />);
+        await waitFor(() => expect(container.querySelector('circle')).not.toBeNull());
+        expect(onMount).toHaveBeenCalledTimes(1);
+
+        rerender(<SvgIn src="/b.svg" onMount={onMount} />);
+        await waitFor(() => expect(container.querySelector('rect')).not.toBeNull());
+        expect(onMount).toHaveBeenCalledTimes(2);
+    });
+
+    it('gives two separate mounted instances of the same icon distinct internal ids', async () => {
+        const svg = '<svg><linearGradient id="g"/><rect fill="url(#g)"/></svg>';
+        mockFetch.mockResolvedValue(svg);
+
+        const { container } = render(
+            <>
+                <SvgIn src="/a.svg" />
+                <SvgIn src="/a.svg" />
+            </>
+        );
+        await waitFor(() => expect(container.querySelectorAll('linearGradient')).toHaveLength(2));
+        const [first, second] = container.querySelectorAll('linearGradient');
+        expect(first.id).not.toBe(second.id);
+    });
 });

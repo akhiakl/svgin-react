@@ -198,6 +198,33 @@ describe('createFetchAndSanitizeSvg', () => {
         ).resolves.toBe('<svg><path/></svg>');
     });
 
+    it('shares a single fetch between two concurrent (unawaited) calls for the same URL', async () => {
+        // Proves request deduplication end to end, not just at the
+        // universalCache layer: two overlapping calls for the same URL,
+        // fired before either has resolved, must only hit fetch once.
+        let resolveText!: (v: string) => void;
+        const fetchMock = vi.fn().mockReturnValue({
+            ok: true,
+            text: () => new Promise<string>(r => { resolveText = r; }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const defaultSanitize = vi.fn().mockResolvedValue('<svg>clean</svg>');
+        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(defaultSanitize);
+
+        const first = fetchAndSanitizeSvg('https://example.com/concurrent.svg');
+        const second = fetchAndSanitizeSvg('https://example.com/concurrent.svg');
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+
+        // Let the microtask queue drain up to the `res.text()` call inside
+        // the implementation (which happens after an `await fetch(...)`)
+        // before resolving it.
+        await new Promise(r => setTimeout(r, 0));
+        resolveText('<svg>raw</svg>');
+        await expect(first).resolves.toBe('<svg>clean</svg>');
+        await expect(second).resolves.toBe('<svg>clean</svg>');
+        expect(defaultSanitize).toHaveBeenCalledTimes(1);
+    });
+
     it('accepts a response with no Content-Type header (headers absent)', async () => {
         // Many test/mock environments omit the headers object entirely.
         // The check must be a no-op when content-type is absent.

@@ -45,4 +45,44 @@ describe('SvgIn (server component)', () => {
             expect.objectContaining({ sanitizeFn: customFn, disableSanitization: false })
         );
     });
+
+    it('renders a <title>/<desc> from the title/description props', async () => {
+        mockFetch.mockResolvedValue('<svg><path/></svg>');
+        const element = await SvgIn({ src: '/a.svg', title: 'Alert icon', description: 'Warns the user' });
+        const { container } = render(element as React.ReactElement);
+        expect(container.querySelector('title')?.textContent).toBe('Alert icon');
+        expect(container.querySelector('desc')?.textContent).toBe('Warns the user');
+    });
+
+    it('calls onError with the actual Error when the fetch rejects', async () => {
+        const err = new Error('fetch failed');
+        mockFetch.mockRejectedValue(err);
+        const onError = vi.fn();
+        await SvgIn({ src: '/missing.svg', onError });
+        expect(onError).toHaveBeenCalledWith(err);
+    });
+
+    it('does not call onError on a successful fetch', async () => {
+        mockFetch.mockResolvedValue('<svg><path/></svg>');
+        const onError = vi.fn();
+        await SvgIn({ src: '/a.svg', onError });
+        expect(onError).not.toHaveBeenCalled();
+    });
+
+    it('gives two separate render calls of the same icon distinct internal ids', async () => {
+        const svg = '<svg><linearGradient id="g"/><rect fill="url(#g)"/></svg>';
+        mockFetch.mockResolvedValue(svg);
+        const [elementA, elementB] = await Promise.all([
+            SvgIn({ src: '/a.svg' }),
+            SvgIn({ src: '/a.svg' }),
+        ]);
+        const { container } = render(
+            <>
+                {elementA as React.ReactElement}
+                {elementB as React.ReactElement}
+            </>
+        );
+        const [first, second] = container.querySelectorAll('linearGradient');
+        expect(first.id).not.toBe(second.id);
+    });
 });
