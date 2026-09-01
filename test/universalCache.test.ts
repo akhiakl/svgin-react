@@ -215,7 +215,7 @@ describe('setUniversalCache (fallback in-memory cache)', () => {
         // Promise synchronously (before any `await`), so the second call's
         // `inMemoryCache.has(key)` check sees it before fn would run again.
         let resolve!: (v: string) => void;
-        const impl = vi.fn((_key: string) => new Promise<string>(r => { resolve = r; }));
+        const impl = vi.fn((key: string) => { void key; return new Promise<string>(r => { resolve = r; }); });
         const cached = setUniversalCache(impl);
 
         const first = cached('same-key');
