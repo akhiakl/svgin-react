@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/). [release-please](https://github.com/googleapis/release-please) generates entries here automatically from Conventional Commits on every release - do not hand-edit below this point.
 
+## [0.9.1](https://github.com/akhiakl/svgin-react/compare/v0.9.0...v0.9.1) (2026-09-01)
+
+
+### Bug Fixes
+
+* exclude ignored src from the suspense promise cache key when svg is set ([8f8c1f4](https://github.com/akhiakl/svgin-react/commit/8f8c1f4bb310b2bd409c353b8b0d4b7ce2fe8c1a))
+* stop SvgInSuspense retrying forever on a persistently failing fetch ([d9c49eb](https://github.com/akhiakl/svgin-react/commit/d9c49eb416b29becde8effd9ba8815e95887b8f0))
+* stop SvgInSuspense retrying forever on a persistently failing fetch ([57ce059](https://github.com/akhiakl/svgin-react/commit/57ce059fb637b5dd42e1c000b2f180ef3ce5d69c))
+
 ## [0.9.0](https://github.com/akhiakl/svgin-react/compare/v0.8.0...v0.9.0) (2026-09-01)
 
 
