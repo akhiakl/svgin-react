@@ -1,14 +1,20 @@
-import { render, waitFor } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/utils/fetchAndSanitizeSvgClient', () => ({
     fetchAndSanitizeSvg: vi.fn(),
 }));
+vi.mock('../src/utils/sanitizeSvgStringClient', () => ({
+    sanitizeSvgString: vi.fn(),
+}));
 
 import { SvgIn } from '../src/SvgIn.client';
+import { SvgInProvider } from '../src/SvgInProvider';
 import { fetchAndSanitizeSvg } from '../src/utils/fetchAndSanitizeSvgClient';
+import { sanitizeSvgString } from '../src/utils/sanitizeSvgStringClient';
 
 const mockFetch = vi.mocked(fetchAndSanitizeSvg);
+const mockSanitizeString = vi.mocked(sanitizeSvgString);
 
 describe('SvgIn (client component)', () => {
     beforeEach(() => {
@@ -216,5 +222,156 @@ describe('SvgIn (client component)', () => {
         await waitFor(() => expect(container.querySelectorAll('linearGradient')).toHaveLength(2));
         const [first, second] = container.querySelectorAll('linearGradient');
         expect(first.id).not.toBe(second.id);
+    });
+
+    describe('svg prop (raw markup, no fetch)', () => {
+        it('sanitizes and renders a raw svg prop without calling fetchAndSanitizeSvg', async () => {
+            mockSanitizeString.mockResolvedValue('<svg><circle/></svg>');
+            const { container } = render(<SvgIn svg="<svg><circle/></svg>" />);
+            await waitFor(() => expect(container.querySelector('circle')).not.toBeNull());
+            expect(mockFetch).not.toHaveBeenCalled();
+            expect(mockSanitizeString).toHaveBeenCalledWith('<svg><circle/></svg>', expect.anything());
+        });
+
+        it('prefers svg over src when both are given', async () => {
+            mockSanitizeString.mockResolvedValue('<svg><circle/></svg>');
+            mockFetch.mockResolvedValue('<svg><rect/></svg>');
+            const { container } = render(<SvgIn src="/a.svg" svg="<svg><circle/></svg>" />);
+            await waitFor(() => expect(container.querySelector('circle')).not.toBeNull());
+            expect(mockFetch).not.toHaveBeenCalled();
+        });
+
+        it('re-sanitizes when the svg prop value changes', async () => {
+            mockSanitizeString
+                .mockResolvedValueOnce('<svg><circle/></svg>')
+                .mockResolvedValueOnce('<svg><rect/></svg>');
+            const { container, rerender } = render(<SvgIn svg="<svg><circle/></svg>" />);
+            await waitFor(() => expect(container.querySelector('circle')).not.toBeNull());
+
+            rerender(<SvgIn svg="<svg><rect/></svg>" />);
+            await waitFor(() => expect(container.querySelector('rect')).not.toBeNull());
+            expect(mockSanitizeString).toHaveBeenCalledTimes(2);
+        });
+
+        it('renders the fallback and calls onError when neither src nor svg is given', async () => {
+            const onError = vi.fn();
+            const { container } = render(
+                <SvgIn fallback={<span>bad usage</span>} onError={onError} />
+            );
+            await waitFor(() => expect(container.textContent).toBe('bad usage'));
+            expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('src') }));
+            expect(mockFetch).not.toHaveBeenCalled();
+            expect(mockSanitizeString).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('loadingFallback', () => {
+        it('renders the custom loadingFallback instead of the default placeholder while pending', () => {
+            mockFetch.mockReturnValue(new Promise(() => {}));
+            const { container } = render(<SvgIn src="/a.svg" loadingFallback={<span>spinner</span>} />);
+            expect(container.textContent).toBe('spinner');
+            expect(container.querySelector('svg')).toBeNull();
+        });
+
+        it('renders nothing while loading when loadingFallback is explicitly null', () => {
+            mockFetch.mockReturnValue(new Promise(() => {}));
+            const { container } = render(<SvgIn src="/a.svg" loadingFallback={null} />);
+            expect(container.firstChild).toBeNull();
+        });
+
+        it('falls back to the default aria-hidden placeholder when loadingFallback is not given', () => {
+            mockFetch.mockReturnValue(new Promise(() => {}));
+            const { container } = render(<SvgIn src="/a.svg" />);
+            expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+        });
+    });
+
+    describe('loading="lazy"', () => {
+        const observed: Array<{ callback: IntersectionObserverCallback; el: Element }> = [];
+        let originalIO: typeof IntersectionObserver | undefined;
+
+        beforeEach(() => {
+            observed.length = 0;
+            originalIO = globalThis.IntersectionObserver;
+            class MockIntersectionObserver {
+                callback: IntersectionObserverCallback;
+                constructor(callback: IntersectionObserverCallback) {
+                    this.callback = callback;
+                }
+                observe(el: Element) {
+                    observed.push({ callback: this.callback, el });
+                }
+                disconnect() {}
+                unobserve() {}
+            }
+            // @ts-expect-error - minimal mock, not the full IntersectionObserver interface
+            globalThis.IntersectionObserver = MockIntersectionObserver;
+        });
+
+        afterEach(() => {
+            globalThis.IntersectionObserver = originalIO as typeof IntersectionObserver;
+        });
+
+        it('does not fetch until the placeholder intersects the viewport', async () => {
+            mockFetch.mockResolvedValue('<svg><circle/></svg>');
+            render(<SvgIn src="/a.svg" loading="lazy" />);
+            await new Promise((r) => setTimeout(r, 10));
+            expect(mockFetch).not.toHaveBeenCalled();
+            expect(observed).toHaveLength(1);
+        });
+
+        it('fetches once the placeholder is reported as intersecting', async () => {
+            mockFetch.mockResolvedValue('<svg><circle/></svg>');
+            const { container } = render(<SvgIn src="/a.svg" loading="lazy" />);
+            await new Promise((r) => setTimeout(r, 10));
+            act(() => {
+                observed[0].callback(
+                    [{ isIntersecting: true } as IntersectionObserverEntry],
+                    {} as IntersectionObserver
+                );
+            });
+            await waitFor(() => expect(container.querySelector('circle')).not.toBeNull());
+        });
+
+        it('loads eagerly (ignores lazy) when a raw svg prop is given', async () => {
+            mockSanitizeString.mockResolvedValue('<svg><circle/></svg>');
+            render(<SvgIn svg="<svg><circle/></svg>" loading="lazy" />);
+            await waitFor(() => expect(mockSanitizeString).toHaveBeenCalled());
+            expect(observed).toHaveLength(0);
+        });
+    });
+
+    describe('SvgInProvider', () => {
+        it('applies provider defaults when a prop is not set explicitly', async () => {
+            mockFetch.mockRejectedValue(new Error('fail'));
+            const { container } = render(
+                <SvgInProvider fallback={<span>provider fallback</span>}>
+                    <SvgIn src="/missing.svg" />
+                </SvgInProvider>
+            );
+            await waitFor(() => expect(container.textContent).toBe('provider fallback'));
+        });
+
+        it('lets an explicit prop override the provider default', async () => {
+            mockFetch.mockRejectedValue(new Error('fail'));
+            const { container } = render(
+                <SvgInProvider fallback={<span>provider fallback</span>}>
+                    <SvgIn src="/missing.svg" fallback={<span>own fallback</span>} />
+                </SvgInProvider>
+            );
+            await waitFor(() => expect(container.textContent).toBe('own fallback'));
+        });
+
+        it('applies a provider-level sanitizeFn default', async () => {
+            const providerSanitize = vi.fn().mockResolvedValue('ignored');
+            mockFetch.mockResolvedValue('<svg><path/></svg>');
+            render(
+                <SvgInProvider sanitizeFn={providerSanitize}>
+                    <SvgIn src="/a.svg" />
+                </SvgInProvider>
+            );
+            await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+            expect(mockFetch).toHaveBeenCalledWith('/a.svg', expect.objectContaining({ sanitizeFn: providerSanitize }));
+        });
     });
 });
