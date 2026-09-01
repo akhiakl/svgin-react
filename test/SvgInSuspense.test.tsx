@@ -211,6 +211,32 @@ describe('SvgInSuspense (client component)', () => {
         expect(mockSanitizeString).toHaveBeenCalledWith('<svg><circle/></svg>', expect.anything());
     });
 
+    it('reuses one cache entry for the same svg regardless of an accompanying (ignored) src', async () => {
+        // Regression test: the cache key used to include `src` unconditionally,
+        // even though svgProp takes precedence and src is never read when it's
+        // set - so two renders with the same svg but a different (irrelevant)
+        // src used to sanitize twice instead of sharing one cache entry.
+        mockSanitizeString.mockResolvedValue('<svg><circle/></svg>');
+
+        await act(async () => {
+            render(
+                <React.Suspense fallback={<span>loading...</span>}>
+                    <SvgInSuspense svg="<svg><circle/></svg>" src="/a.svg" />
+                </React.Suspense>
+            );
+        });
+        await act(async () => {
+            render(
+                <React.Suspense fallback={<span>loading...</span>}>
+                    <SvgInSuspense svg="<svg><circle/></svg>" src="/b.svg" />
+                </React.Suspense>
+            );
+        });
+
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(mockSanitizeString).toHaveBeenCalledTimes(1);
+    });
+
     it('is caught by the nearest error boundary when neither src nor svg is given', async () => {
         let container!: HTMLElement;
         await act(async () => {

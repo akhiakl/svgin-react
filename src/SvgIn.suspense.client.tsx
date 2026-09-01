@@ -83,7 +83,17 @@ function resolvePromise(
         throw new Error('<SvgInSuspense /> requires either `src` or `svg`.');
     }
 
-    const key = stableKey([src, svgProp, sanitizeFn, disableSanitization]);
+    // svgProp takes precedence over src (mirrors the branch below) - src is
+    // ignored whenever svgProp is given, so it must be left out of the key
+    // in that case too. Including it anyway would key on a value that plays
+    // no part in the actual request, splitting what should be one cache
+    // entry into a separate (and pointlessly re-fetched/re-sanitized) one
+    // for every distinct `src` an app happens to pass alongside the same
+    // `svg`.
+    const key =
+        svgProp !== undefined
+            ? stableKey([svgProp, sanitizeFn, disableSanitization])
+            : stableKey([src, sanitizeFn, disableSanitization]);
     let promise = suspensePromises.get(key);
     if (promise === undefined) {
         promise =
