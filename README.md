@@ -118,16 +118,20 @@ await preloadSvg('/icons/alert.svg', {
 | `description` | `string` | Injects an accessible `<desc>` — a longer description than `title`. |
 | `sanitizeFn` | `(svg: string) => Promise<string>` | Replace the default sanitizer with your own. |
 | `disableSanitization` | `boolean` | Skip sanitization entirely. Only use this for SVGs you trust. |
+| `onError` | `(error: Error) => void` | Called when the fetch or sanitization fails, alongside rendering `fallback` - for logging/telemetry. |
+| `onMount` | `(svg: SVGSVGElement) => void` | Client component only. Called with the rendered `<svg>` DOM element right after it mounts or updates. No-op on the server component (there is no DOM to hand back). |
 
 Source SVG attributes (`viewBox`, `preserveAspectRatio`, `xmlns`, etc.) are automatically forwarded from the fetched SVG to the rendered element. Explicit props (`width`, `height`, `fill`, `className`, `ariaLabel`) always take precedence.
 
 Internal ids (on `<linearGradient>`, `<clipPath>`, `<mask>`, `<filter>`, etc.) are automatically made unique per rendered instance, so two `<SvgIn>` copies of the same icon on one page never collide over a shared gradient or clip path.
 
+When `title` and/or `description` are set, the rendered `<svg>` also gets `aria-labelledby`/`aria-describedby` pointing at the injected `<title>`/`<desc>` ids - the more broadly-compatible way to wire an accessible name/description than relying on assistive tech to treat a bare `<title>`/`<desc>` as implicit labelling, which not every screen reader does consistently. An explicit `ariaLabel` always takes precedence over the auto-wired `aria-labelledby`.
+
 > **`sanitizeFn` identity note:** switching from *no* custom sanitizer to *any* custom sanitizer (or back) triggers a re-fetch. Replacing one custom sanitizer with a *different* one while `sanitizeFn` is already defined does **not** trigger a re-fetch, because the component tracks presence rather than identity to avoid unnecessary re-fetches from inline arrow functions. If you need to force a re-fetch when the sanitizer logic changes, change the `src` prop or remount the component.
 
 ### `SvgIn(props)` (server component)
 
-Same props as above. This one is an `async` function instead of a hook-based component, since server components render on the server before any client code runs.
+Same props as above, except `onMount` is a no-op (there is no DOM on the server). This one is an `async` function instead of a hook-based component, since server components render on the server before any client code runs.
 
 ### `preloadSvg(url, options?)`
 
@@ -169,6 +173,16 @@ Accessible name and description:
 
 ```tsx
 <SvgIn src="/icons/alert.svg" title="Alert" description="Indicates a warning that needs attention" />
+```
+
+Error/mount callbacks:
+
+```tsx
+<SvgIn
+  src="/icons/alert.svg"
+  onError={(error) => reportToTelemetry(error)}
+  onMount={(svg) => svg.classList.add('ready')}
+/>
 ```
 
 ## Development

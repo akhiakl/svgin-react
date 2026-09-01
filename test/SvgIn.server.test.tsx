@@ -54,6 +54,21 @@ describe('SvgIn (server component)', () => {
         expect(container.querySelector('desc')?.textContent).toBe('Warns the user');
     });
 
+    it('calls onError with the actual Error when the fetch rejects', async () => {
+        const err = new Error('fetch failed');
+        mockFetch.mockRejectedValue(err);
+        const onError = vi.fn();
+        await SvgIn({ src: '/missing.svg', onError });
+        expect(onError).toHaveBeenCalledWith(err);
+    });
+
+    it('does not call onError on a successful fetch', async () => {
+        mockFetch.mockResolvedValue('<svg><path/></svg>');
+        const onError = vi.fn();
+        await SvgIn({ src: '/a.svg', onError });
+        expect(onError).not.toHaveBeenCalled();
+    });
+
     it('gives two separate render calls of the same icon distinct internal ids', async () => {
         const svg = '<svg><linearGradient id="g"/><rect fill="url(#g)"/></svg>';
         mockFetch.mockResolvedValue(svg);

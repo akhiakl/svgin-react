@@ -44,23 +44,41 @@ function parseSvgAttrs(attrString: string): Record<string, string> {
  * props passed by the consumer always take precedence.
  */
 export const SvgInComponent: React.FC<
-    Omit<SvgInProps, 'src' | 'sanitizeFn'> & { svg: string | null; idSuffix?: string }
-> = ({ svg, width, height, fill, fallback = null, className, ariaLabel, title, description, idSuffix }) => {
+    Omit<SvgInProps, 'src' | 'sanitizeFn'> & {
+        svg: string | null;
+        idSuffix?: string;
+        // React 19 passes `ref` through to function components as a normal
+        // prop (no forwardRef needed) - forwarded to the rendered <svg> so
+        // SvgIn.client.tsx can hand it to the onMount callback.
+        ref?: React.Ref<SVGSVGElement>;
+    }
+> = ({ svg, width, height, fill, fallback = null, className, ariaLabel, title, description, idSuffix, ref }) => {
     if (!svg) return fallback;
     let inner = extractSvgInner(svg);
     if (inner !== null) {
         if (idSuffix) inner = uniquifyIds(inner, idSuffix);
-        if (description) inner = `<desc>${escapeHtml(description)}</desc>${inner}`;
-        if (title) inner = `<title>${escapeHtml(title)}</title>${inner}`;
+        // Ids for the <title>/<desc> elements this injects, so the root <svg>
+        // can point aria-labelledby/aria-describedby at them - the more
+        // broadly-compatible way to wire an accessible name/description than
+        // relying on assistive tech to treat a bare <title>/<desc> as implicit
+        // labelling, which not every screen reader does consistently.
+        const titleId = title ? `svgin-title-${idSuffix ?? ''}` : undefined;
+        const descId = description ? `svgin-desc-${idSuffix ?? ''}` : undefined;
+        if (description) inner = `<desc id="${descId}">${escapeHtml(description)}</desc>${inner}`;
+        if (title) inner = `<title id="${titleId}">${escapeHtml(title)}</title>${inner}`;
         const sourceAttrs = parseSvgAttrs(extractSvgAttrs(svg));
+        // Explicit ariaLabel always wins over the auto-wired title id, same
+        // precedence as every other explicit prop in this component.
         return (
             <svg
+                ref={ref}
                 {...sourceAttrs}
                 {...(width !== undefined ? { width } : {})}
                 {...(height !== undefined ? { height } : {})}
                 {...(fill ? { fill } : {})}
                 {...(className ? { className } : {})}
-                {...(ariaLabel ? { 'aria-label': ariaLabel } : {})}
+                {...(ariaLabel ? { 'aria-label': ariaLabel } : titleId ? { 'aria-labelledby': titleId } : {})}
+                {...(descId ? { 'aria-describedby': descId } : {})}
                 dangerouslySetInnerHTML={{ __html: inner }}
             />
         );

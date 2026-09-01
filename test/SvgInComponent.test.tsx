@@ -109,4 +109,55 @@ describe('SvgInComponent', () => {
         );
         expect(container.querySelector('linearGradient')?.id).toBe('g');
     });
+
+    it('wires aria-labelledby to the injected title id when title is provided', () => {
+        const { container } = render(
+            <SvgInComponent svg={'<svg><path/></svg>'} title="Alert icon" idSuffix="x" />
+        );
+        const svg = container.querySelector('svg');
+        const titleEl = svg?.querySelector('title');
+        expect(titleEl?.id).toBeTruthy();
+        expect(svg).toHaveAttribute('aria-labelledby', titleEl!.id);
+    });
+
+    it('wires aria-describedby to the injected desc id when description is provided', () => {
+        const { container } = render(
+            <SvgInComponent svg={'<svg><path/></svg>'} description="Warns the user" idSuffix="x" />
+        );
+        const svg = container.querySelector('svg');
+        const descEl = svg?.querySelector('desc');
+        expect(descEl?.id).toBeTruthy();
+        expect(svg).toHaveAttribute('aria-describedby', descEl!.id);
+    });
+
+    it('wires both aria-labelledby and aria-describedby when both title and description are provided', () => {
+        const { container } = render(
+            <SvgInComponent svg={'<svg><path/></svg>'} title="Alert icon" description="Warns the user" idSuffix="x" />
+        );
+        const svg = container.querySelector('svg');
+        expect(svg).toHaveAttribute('aria-labelledby', svg?.querySelector('title')?.id);
+        expect(svg).toHaveAttribute('aria-describedby', svg?.querySelector('desc')?.id);
+    });
+
+    it('lets an explicit ariaLabel win over the auto-wired aria-labelledby', () => {
+        const { container } = render(
+            <SvgInComponent svg={'<svg><path/></svg>'} title="Alert icon" ariaLabel="Custom label" idSuffix="x" />
+        );
+        const svg = container.querySelector('svg');
+        expect(svg).toHaveAttribute('aria-label', 'Custom label');
+        expect(svg).not.toHaveAttribute('aria-labelledby');
+    });
+
+    it('does not set aria-labelledby/aria-describedby when title/description are absent', () => {
+        const { container } = render(<SvgInComponent svg={'<svg><path/></svg>'} />);
+        const svg = container.querySelector('svg');
+        expect(svg).not.toHaveAttribute('aria-labelledby');
+        expect(svg).not.toHaveAttribute('aria-describedby');
+    });
+
+    it('forwards a ref to the rendered svg element', () => {
+        const ref = { current: null as SVGSVGElement | null };
+        render(<SvgInComponent svg={'<svg><path/></svg>'} ref={ref} />);
+        expect(ref.current).toBeInstanceOf(SVGSVGElement);
+    });
 });

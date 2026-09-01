@@ -14,4 +14,8 @@ export interface SvgInProps {
     description?: string;
     sanitizeFn?: (svg: string) => Promise<string>;
     disableSanitization?: boolean;
+    /** Called when the fetch or sanitization fails, alongside rendering `fallback` - for logging/telemetry. */
+    onError?: (error: Error) => void;
+    /** Client component only: called with the rendered `<svg>` DOM element right after it mounts or updates. No-op on the server component (there is no DOM to hand back). */
+    onMount?: (svg: SVGSVGElement) => void;
 }
