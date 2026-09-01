@@ -1,8 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": ["react", "react-dom", "vite/client", "vitest/globals", "@testing-library/jest-dom"],
-    "lib": ["DOM", "DOM.Iterable", "ES2020"],
+    "types": ["@playwright/test", "node"],
     "declaration": false,
     "declarationMap": false,
     "emitDeclarationOnly": false,
@@ -10,6 +9,5 @@
     "module": "ESNext",
     "moduleResolution": "Bundler"
   },
-  "include": ["site"],
-  "exclude": ["site/e2e"]
+  "include": ["site/e2e", "playwright.config.ts"]
 }

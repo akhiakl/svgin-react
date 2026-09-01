@@ -10,9 +10,9 @@ export const examples: Example[] = [
         id: 'clean',
         label: 'Clean icon',
         description: 'A normal icon - passes through untouched.',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-  <circle cx="12" cy="12" r="10" />
-  <path d="M8 12l2.5 2.5L16 9" />
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+  <path d="M8 12l2.5 2.5L16 9" stroke="currentColor" stroke-width="2" />
 </svg>`,
     },
     {

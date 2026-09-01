@@ -1,0 +1,52 @@
+name: E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'src/**'
+      - 'playwright.config.ts'
+      - 'tsconfig.e2e.json'
+      - '.github/workflows/e2e.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'src/**'
+      - 'playwright.config.ts'
+      - 'tsconfig.e2e.json'
+      - '.github/workflows/e2e.yml'
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  playwright:
+    name: Playwright (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+      - run: pnpm run typecheck:e2e
+      - run: pnpm exec playwright test --project=${{ matrix.browser }}
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: playwright-report
+          retention-days: 14

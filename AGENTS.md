@@ -21,6 +21,8 @@ This file is the shared source of instructions for AI coding tools working in th
 - `src/utils/svgCache.ts`, `src/utils/universalCache.ts` — caching (React `cache()` in RSC, an in-memory fallback elsewhere).
 - `test/` — Vitest tests, one file per source module being tested.
 - `site/` — the standalone "Inspector" static site (paste an SVG, see what the default sanitizer strips, all client-side), deployed to GitHub Pages. Separate Vite build from the package (`pnpm run site:dev`/`site:build`), imports the library straight from `src/` so the demo always reflects current code. Not part of the published npm package - `pnpm run size`'s budgets do not apply to it.
+  - `site/test/` — Vitest unit/component tests for the site (`diff.ts`'s pure logic, `App.tsx` via Testing Library), run together with the package's own tests via the same `pnpm run test`/`test:coverage` (included in `vitest.config.mts`, but deliberately excluded from the coverage threshold gate, which stays scoped to the package's `src/`).
+  - `site/e2e/` — Playwright end-to-end tests against a real browser (chromium, firefox, webkit): loading presets, the sanitization diff, the id-uniquify demo, the URL loader. Separate from the unit tests because they need a real browser, not jsdom - real DOMPurify-in-the-DOM behavior, not a simulation of it.
 
 ## Before making a change
 
@@ -50,6 +52,14 @@ A change that touches `site/` (or `src/`, which it imports directly) should also
 ```sh
 pnpm run typecheck:site
 pnpm run site:build
+```
+
+(`site/test/**` runs as part of the regular `pnpm run test`/`test:coverage` above, so no separate step is needed for it.) A change that touches `site/e2e/` (or `site/` more broadly) should also pass:
+
+```sh
+pnpm run typecheck:e2e
+pnpm exec playwright install   # once per machine
+pnpm run test:e2e
 ```
 
 ## Commit and pull request conventions
