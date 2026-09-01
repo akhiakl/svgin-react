@@ -35,6 +35,21 @@ Inlining raw SVG markup from a URL you don't fully control is a real security ri
 
 Sizes measured with the same tooling (esbuild, minified, gzipped, `react`/`react-dom` externalized) as this repo's own [bundle-size budget check](scripts/check-bundle-size.mjs) — see [`llms.txt`](llms.txt) for the raw numbers. react-inlinesvg in particular ships with no sanitization option at all, opt-in or otherwise.
 
+### What about SVGR (`@svgr/core`)?
+
+[SVGR](https://www.npmjs.com/package/@svgr/core) isn't really a competitor to svgin-react - it solves a different problem, and the two are often used together rather than instead of each other:
+
+|                          | **svgin-react**                          | SVGR (`@svgr/core`)                          |
+| ------------------------ | :---------------------------------------: | :--------------------------------------------: |
+| When it runs             | Runtime (in the browser / on request)     | Build time (webpack/rollup/Vite loader, CLI, or Node API) |
+| What it takes             | A URL, or a raw SVG string you already have | An SVG **file in your repo**                    |
+| Output                   | A rendered `<svg>` element                | Generated React component **source code**       |
+| Fits SVGs whose content isn't known until runtime (CMS fields, user uploads, a URL from an API response) | ✅ | ❌ - the file has to exist in your project at build time |
+| Sanitizes untrusted markup | ✅ (DOMPurify by default)                 | Not its job - it optimizes/transforms SVGs you already trust as part of your own codebase, it isn't built to run against untrusted input |
+| Runtime bundle cost of the tool itself | ~2 KB (client entry, see above) | None - it's a build-time devDependency, not shipped to the browser |
+
+If your icons are static files that ship with your app (a logo, a fixed icon set), SVGR is the better fit - it does its work once at build time and adds nothing to your runtime bundle. Reach for svgin-react when the SVG's content isn't known until runtime: fetched from a URL, returned by an API, stored in a database, or otherwise not a file sitting in your repo when you build.
+
 ## Install
 
 ```sh
