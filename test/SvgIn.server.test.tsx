@@ -4,11 +4,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../src/utils/fetchAndSanitizeSvgServer', () => ({
     fetchAndSanitizeSvg: vi.fn(),
 }));
+vi.mock('../src/utils/sanitizeSvgStringServer', () => ({
+    sanitizeSvgString: vi.fn(),
+}));
 
 import { SvgIn } from '../src/SvgIn.server';
 import { fetchAndSanitizeSvg } from '../src/utils/fetchAndSanitizeSvgServer';
+import { sanitizeSvgString } from '../src/utils/sanitizeSvgStringServer';
 
 const mockFetch = vi.mocked(fetchAndSanitizeSvg);
+const mockSanitizeString = vi.mocked(sanitizeSvgString);
 
 describe('SvgIn (server component)', () => {
     afterEach(() => {
@@ -67,6 +72,34 @@ describe('SvgIn (server component)', () => {
         const onError = vi.fn();
         await SvgIn({ src: '/a.svg', onError });
         expect(onError).not.toHaveBeenCalled();
+    });
+
+    it('sanitizes and renders a raw svg prop without calling fetchAndSanitizeSvg', async () => {
+        mockSanitizeString.mockResolvedValue('<svg><circle/></svg>');
+        const element = await SvgIn({ svg: '<svg><circle/></svg>' });
+        const { container } = render(element as React.ReactElement);
+        expect(container.querySelector('circle')).not.toBeNull();
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(mockSanitizeString).toHaveBeenCalledWith('<svg><circle/></svg>', expect.anything());
+    });
+
+    it('prefers svg over src when both are given', async () => {
+        mockSanitizeString.mockResolvedValue('<svg><circle/></svg>');
+        mockFetch.mockResolvedValue('<svg><rect/></svg>');
+        const element = await SvgIn({ src: '/a.svg', svg: '<svg><circle/></svg>' });
+        const { container } = render(element as React.ReactElement);
+        expect(container.querySelector('circle')).not.toBeNull();
+        expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('returns the fallback and calls onError when neither src nor svg is given', async () => {
+        const onError = vi.fn();
+        const element = await SvgIn({ fallback: <span>bad usage</span>, onError });
+        const { container } = render(element as React.ReactElement);
+        expect(container.textContent).toBe('bad usage');
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('src') }));
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(mockSanitizeString).not.toHaveBeenCalled();
     });
 
     it('gives two separate render calls of the same icon distinct internal ids', async () => {

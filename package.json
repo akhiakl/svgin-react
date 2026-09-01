@@ -121,7 +121,10 @@
     "react-server-components",
     "react server components svg",
     "app router",
-    "typescript"
+    "typescript",
+    "react suspense",
+    "lazy loading",
+    "svg lazy load"
   ],
   "author": "Akhil K",
   "license": "MIT",

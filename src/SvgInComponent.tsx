@@ -44,7 +44,11 @@ function parseSvgAttrs(attrString: string): Record<string, string> {
  * props passed by the consumer always take precedence.
  */
 export const SvgInComponent: React.FC<
-    Omit<SvgInProps, 'src' | 'sanitizeFn'> & {
+    // 'svg' is also omitted: SvgInProps.svg is the caller-supplied *raw*
+    // markup (input to sanitization), while this component's own `svg` prop
+    // below is the already-sanitized markup ready to render - same name,
+    // different meaning at different pipeline stages.
+    Omit<SvgInProps, 'src' | 'sanitizeFn' | 'svg'> & {
         svg: string | null;
         idSuffix?: string;
         // React 19 passes `ref` through to function components as a normal

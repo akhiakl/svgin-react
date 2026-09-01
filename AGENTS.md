@@ -8,12 +8,16 @@ This file is the shared source of instructions for AI coding tools working in th
 
 ## Source layout
 
-- `src/SvgIn.client.tsx`, `src/SvgIn.server.tsx` — the client and server versions of the `<SvgIn />` component.
+- `src/SvgIn.client.tsx` — the client `<SvgIn />` component (stateful: `useEffect` + state).
+- `src/SvgIn.suspense.client.tsx` — `<SvgInSuspense />`, a separate `use()`-based Suspense component. Deliberately not merged into `SvgIn.client.tsx` (not a `suspense` prop on `<SvgIn />`): a runtime-prop branch inside a component every consumer imports can never be tree-shaken, but a wholly separate export can be, for consumers who never import it. Do not fold this back into `SvgIn.client.tsx` or give it access to `SvgInContext` - both would undo the point of the split.
+- `src/SvgIn.server.tsx` — the async server `<SvgIn />` component.
 - `src/SvgInComponent.tsx` — shared rendering logic once sanitized SVG markup is available.
+- `src/SvgInContext.ts`, `src/SvgInProvider.tsx` — `<SvgInProvider>` (client only) for shared defaults on `<SvgIn />`. Not consulted by `<SvgInSuspense />`, for the same tree-shaking reason.
 - `src/preload.ts` — `preloadSvg`, for fetching and caching ahead of render.
 - `src/client.ts`, `src/server.ts`, `src/core.ts` — the package's entry points (see `exports` in `package.json`).
 - `src/utils/sanitizeClient.ts`, `src/utils/sanitizeServer.ts` — the default DOMPurify-based sanitizers.
-- `src/utils/fetchAndSanitizeSvgBase.ts`, `fetchAndSanitizeSvgClient.ts`, `fetchAndSanitizeSvgServer.ts` — fetch + sanitize + cache orchestration.
+- `src/utils/fetchAndSanitizeSvgBase.ts`, `fetchAndSanitizeSvgClient.ts`, `fetchAndSanitizeSvgServer.ts` — fetch + sanitize + cache orchestration for the `src` prop.
+- `src/utils/sanitizeSvgStringBase.ts` (+ `sanitizeSvgStringClient.ts`/`sanitizeSvgStringServer.ts`) — sanitize + cache orchestration for the `svg` (raw markup) prop, mirrors the above minus the fetch step.
 - `src/utils/svgCache.ts`, `src/utils/universalCache.ts` — caching (React `cache()` in RSC, an in-memory fallback elsewhere).
 - `test/` — Vitest tests, one file per source module being tested.
 

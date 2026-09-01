@@ -35,6 +35,21 @@ Inlining raw SVG markup from a URL you don't fully control is a real security ri
 
 Sizes measured with the same tooling (esbuild, minified, gzipped, `react`/`react-dom` externalized) as this repo's own [bundle-size budget check](scripts/check-bundle-size.mjs) — see [`llms.txt`](llms.txt) for the raw numbers. react-inlinesvg in particular ships with no sanitization option at all, opt-in or otherwise.
 
+### What about SVGR (`@svgr/core`)?
+
+[SVGR](https://www.npmjs.com/package/@svgr/core) isn't really a competitor to svgin-react - it solves a different problem, and the two are often used together rather than instead of each other:
+
+|                          | **svgin-react**                          | SVGR (`@svgr/core`)                          |
+| ------------------------ | :---------------------------------------: | :--------------------------------------------: |
+| When it runs             | Runtime (in the browser / on request)     | Build time (webpack/rollup/Vite loader, CLI, or Node API) |
+| What it takes             | A URL, or a raw SVG string you already have | An SVG **file in your repo**                    |
+| Output                   | A rendered `<svg>` element                | Generated React component **source code**       |
+| Fits SVGs whose content isn't known until runtime (CMS fields, user uploads, a URL from an API response) | ✅ | ❌ - the file has to exist in your project at build time |
+| Sanitizes untrusted markup | ✅ (DOMPurify by default)                 | Not its job - it optimizes/transforms SVGs you already trust as part of your own codebase, it isn't built to run against untrusted input |
+| Runtime bundle cost of the tool itself | ~2 KB (client entry, see above) | None - it's a build-time devDependency, not shipped to the browser |
+
+If your icons are static files that ship with your app (a logo, a fixed icon set), SVGR is the better fit - it does its work once at build time and adds nothing to your runtime bundle. Reach for svgin-react when the SVG's content isn't known until runtime: fetched from a URL, returned by an API, stored in a database, or otherwise not a file sitting in your repo when you build.
+
 ## Install
 
 ```sh
@@ -108,10 +123,12 @@ await preloadSvg('/icons/alert.svg', {
 
 | Prop | Type | Description |
 | --- | --- | --- |
-| `src` | `string` | URL of the SVG to fetch. |
+| `src` | `string` | URL of the SVG to fetch. Either `src` or `svg` is required. |
+| `svg` | `string` | Raw SVG markup you already have (from a CMS field, API response, etc.) - sanitized and rendered directly, skipping the fetch step. Takes precedence over `src` if both are given. |
 | `width`, `height` | `number \| string` | Applied to the rendered `<svg>` element (overrides any matching source attribute). |
 | `fill` | `string` | Applied to the rendered `<svg>` element. |
 | `fallback` | `ReactNode` | Rendered if the fetch or sanitization fails. |
+| `loadingFallback` | `ReactNode` | Client component only. Rendered while the fetch/sanitize is pending, instead of the default `aria-hidden` placeholder `<svg>`. Pass `null` to render nothing while loading. |
 | `className` | `string` | Applied to the rendered `<svg>` element. |
 | `ariaLabel` | `string` | Sets `aria-label` on the rendered `<svg>` element. |
 | `title` | `string` | Injects an accessible `<title>` (also shown as a tooltip in most browsers). |
@@ -120,6 +137,9 @@ await preloadSvg('/icons/alert.svg', {
 | `disableSanitization` | `boolean` | Skip sanitization entirely. Only use this for SVGs you trust. |
 | `onError` | `(error: Error) => void` | Called when the fetch or sanitization fails, alongside rendering `fallback` - for logging/telemetry. |
 | `onMount` | `(svg: SVGSVGElement) => void` | Client component only. Called with the rendered `<svg>` DOM element right after it mounts or updates. No-op on the server component (there is no DOM to hand back). |
+| `loading` | `'eager' \| 'lazy'` | Client component only. `'lazy'` defers the fetch until the placeholder scrolls near the viewport ([`IntersectionObserver`](#lazy-loading)). Default `'eager'`. |
+
+Need Suspense instead? See [`<SvgInSuspense />`](#svginsuspense-client-component) below - it's a separate component rather than a prop on `<SvgIn />`, specifically so a bundler can drop it entirely for consumers who never import it.
 
 Source SVG attributes (`viewBox`, `preserveAspectRatio`, `xmlns`, etc.) are automatically forwarded from the fetched SVG to the rendered element. Explicit props (`width`, `height`, `fill`, `className`, `ariaLabel`) always take precedence.
 
@@ -131,7 +151,46 @@ When `title` and/or `description` are set, the rendered `<svg>` also gets `aria-
 
 ### `SvgIn(props)` (server component)
 
-Same props as above, except `onMount` is a no-op (there is no DOM on the server). This one is an `async` function instead of a hook-based component, since server components render on the server before any client code runs.
+Same props as above, except `onMount` and `loading` are no-ops (there is no DOM to hand back, and no loading state to defer). This one is an `async` function instead of a hook-based component, since server components render on the server before any client code runs. It's already Suspense-friendly on its own - see below.
+
+### `<SvgInSuspense />` (client component)
+
+```tsx
+import { SvgInSuspense } from 'svgin-react/client';
+
+<Suspense fallback={<IconSkeleton />}>
+  <SvgInSuspense src="/icons/alert.svg" />
+</Suspense>
+```
+
+Suspends via React 19's `use()` instead of managing its own loading/error state. Pending renders show the nearest `<Suspense fallback>`; a rejected fetch/sanitize is thrown to the nearest error boundary (`onError` still fires as a side notification if you pass it, but doesn't itself handle the error - pair this component with an error boundary). Takes the same `src`/`svg`/`sanitizeFn`/`disableSanitization`/`title`/`description`/`onError`/`onMount` props as `<SvgIn />`; `fallback`, `loadingFallback`, and `loading` don't apply here (there's no internal loading state to customize - Suspense's render-as-you-fetch model always starts eagerly, and the pending UI is the `<Suspense fallback>` instead).
+
+**Why a separate component instead of a `suspense` prop on `<SvgIn />`:** a boolean prop decided at render time can never be tree-shaken out of a bundler's output, even for an app that never sets it - the branch is still reachable code inside the one component everyone imports. A wholly separate export *can* be dropped by any bundler that tree-shakes ESM (which is most of them) if a given app never imports it. Measured with `SvgIn`'s own module graph via esbuild (minified, gzipped, `react` externalized): a bundle importing only `{ SvgIn }` is measurably smaller than one importing `{ SvgIn, SvgInSuspense }` together - importing `SvgInSuspense` only costs you something if you actually use it.
+
+The server component needs no equivalent - it's already Suspense-friendly for free, since it's a plain `async` function component; wrapping its usage in `<Suspense fallback={...}>` just works.
+
+### `<SvgInProvider>` (client component)
+
+Sets shared defaults for every `<SvgIn />` beneath it, so you don't have to repeat the same props on every icon:
+
+```tsx
+import { SvgInProvider, SvgIn } from 'svgin-react/client';
+
+<SvgInProvider className="icon" loadingFallback={<IconSkeleton />} onError={reportToTelemetry}>
+  <SvgIn src="/icons/alert.svg" />
+  <SvgIn src="/icons/check.svg" />
+</SvgInProvider>
+```
+
+Accepts `sanitizeFn`, `disableSanitization`, `fallback`, `loadingFallback`, `className`, `onError`, and `loading`. A prop passed directly to a given `<SvgIn />` always overrides the matching provider default; nested providers override outer ones. Client component only - Context providers require a client boundary in React Server Components, and the async server `<SvgIn />` cannot read context at all. Not read by `<SvgInSuspense />` either, for the same bundle-size reason it isn't a prop on `<SvgIn />` (see above) - depending on the provider's Context module would pull it into every consumer's bundle whether or not they use `<SvgInProvider>`.
+
+### Lazy loading
+
+```tsx
+<SvgIn src="/icons/alert.svg" loading="lazy" />
+```
+
+Defers the fetch until the rendered placeholder scrolls near the viewport, via `IntersectionObserver` (similar to `<img loading="lazy">`) - useful for icon-heavy lists where most icons are never scrolled into view. Falls back to eager loading in environments without `IntersectionObserver`, and is ignored when `svg` is set (nothing to fetch). Client component only; not applicable to `<SvgInSuspense />` (see above).
 
 ### `preloadSvg(url, options?)`
 
@@ -183,6 +242,13 @@ Error/mount callbacks:
   onError={(error) => reportToTelemetry(error)}
   onMount={(svg) => svg.classList.add('ready')}
 />
+```
+
+Markup you already have (e.g. from a CMS or API response), no fetch needed:
+
+```tsx
+const { icon } = await cms.getContent(); // icon is a raw SVG string
+<SvgIn svg={icon} width={24} />
 ```
 
 ## Development
