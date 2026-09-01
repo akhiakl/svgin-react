@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" onload="window.__svginXss='onload'">
+  <script>window.__svginXss = 'script-tag';</script>
+  <circle cx="12" cy="12" r="10" onmouseover="window.__svginXss='onmouseover'" />
+  <a href="javascript:window.__svginXss='javascript-href'">
+    <rect x="0" y="0" width="24" height="24" />
+  </a>
+  <image href="x" onerror="window.__svginXss='img-onerror'" />
+</svg>

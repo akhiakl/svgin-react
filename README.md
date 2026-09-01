@@ -196,9 +196,13 @@ pnpm run test            # vitest
 pnpm run test:coverage   # vitest with coverage
 pnpm run build           # tsup -> dist
 pnpm run size            # gzip bundle size budget check
+
+pnpm exec playwright install  # once per machine
+pnpm run typecheck:e2e
+pnpm run test:e2e        # real-browser e2e + stress tests (chromium/firefox/webkit)
 ```
 
-CI runs all of the above (across Node 22/24 for tests) on every pull request and push to `main`.
+CI runs all of the above (across Node 22/24 for tests, and chromium/firefox/webkit for e2e) on every pull request and push to `main`.
 
 ### Releasing
 

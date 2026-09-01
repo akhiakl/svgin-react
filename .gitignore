@@ -19,6 +19,11 @@ pnpm-debug.log*
 # Test coverage
 coverage/
 
+# Playwright e2e output
+playwright-report/
+test-results/
+blob-report/
+
 # Env
 .env*
 

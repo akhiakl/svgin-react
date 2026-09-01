@@ -16,6 +16,7 @@ This file is the shared source of instructions for AI coding tools working in th
 - `src/utils/fetchAndSanitizeSvgBase.ts`, `fetchAndSanitizeSvgClient.ts`, `fetchAndSanitizeSvgServer.ts` — fetch + sanitize + cache orchestration.
 - `src/utils/svgCache.ts`, `src/utils/universalCache.ts` — caching (React `cache()` in RSC, an in-memory fallback elsewhere).
 - `test/` — Vitest tests, one file per source module being tested.
+- `e2e/` — Playwright end-to-end tests against a real browser (chromium, firefox, webkit): rendering, DOMPurify sanitization, per-instance id uniqueness, and stress tests with many concurrent `<SvgIn>` instances. `e2e/playground/` is a minimal Vite harness that imports the client component straight from `src/`; `e2e/tests/` holds the specs.
 
 ## Before making a change
 
@@ -39,6 +40,8 @@ pnpm run size
 ```
 
 Add or update a test in `test/` for any behavior change. A change is not finished until these all pass.
+
+For a change that touches rendering, sanitization, or id uniquification, also run the Playwright e2e suite (`pnpm run typecheck:e2e`, then `pnpm exec playwright install` once per machine, then `pnpm run test:e2e`). It runs in CI on every pull request across chromium, firefox, and webkit; it is not part of `pnpm run test` because it needs real browsers, not jsdom.
 
 ## Commit and pull request conventions
 
