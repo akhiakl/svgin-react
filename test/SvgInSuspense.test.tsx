@@ -5,11 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../src/utils/fetchAndSanitizeSvgClient', () => ({
     fetchAndSanitizeSvg: vi.fn(),
 }));
+vi.mock('../src/utils/sanitizeSvgStringClient', () => ({
+    sanitizeSvgString: vi.fn(),
+}));
 
 import { SvgInSuspense } from '../src/SvgIn.suspense.client';
 import { fetchAndSanitizeSvg } from '../src/utils/fetchAndSanitizeSvgClient';
+import { sanitizeSvgString } from '../src/utils/sanitizeSvgStringClient';
 
 const mockFetch = vi.mocked(fetchAndSanitizeSvg);
+const mockSanitizeString = vi.mocked(sanitizeSvgString);
 
 class ErrorBoundary extends React.Component<
     { children: React.ReactNode; onError?: (error: Error) => void },
@@ -113,6 +118,23 @@ describe('SvgInSuspense (client component)', () => {
         });
 
         await waitFor(() => expect(onMount).toHaveBeenCalledWith(container.querySelector('svg')));
+    });
+
+    it('sanitizes and renders a raw svg prop without calling fetchAndSanitizeSvg', async () => {
+        mockSanitizeString.mockResolvedValue('<svg><circle/></svg>');
+
+        let container!: HTMLElement;
+        await act(async () => {
+            ({ container } = render(
+                <React.Suspense fallback={<span>loading...</span>}>
+                    <SvgInSuspense svg="<svg><circle/></svg>" />
+                </React.Suspense>
+            ));
+        });
+
+        expect(container.querySelector('circle')).not.toBeNull();
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(mockSanitizeString).toHaveBeenCalledWith('<svg><circle/></svg>', expect.anything());
     });
 
     it('is caught by the nearest error boundary when neither src nor svg is given', async () => {
