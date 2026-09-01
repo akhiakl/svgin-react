@@ -28,10 +28,12 @@ export interface SvgInProps {
      * Client component only. `'lazy'` defers the fetch/sanitize until the
      * rendered placeholder scrolls near the viewport (via
      * `IntersectionObserver`, similar to `<img loading="lazy">`). Falls back
-     * to eager loading in environments without `IntersectionObserver`, and
-     * is ignored when `svg` is set (there is nothing to fetch). Not used by
-     * <SvgInSuspense /> (Suspense's render-as-you-fetch model always starts
-     * eagerly). Default `'eager'`.
+     * to eager loading in environments without `IntersectionObserver`, when
+     * `svg` is set (there is nothing to fetch), and when `loadingFallback` is
+     * set (an arbitrary `ReactNode` has no single DOM node to observe, so
+     * deferring there would mean never starting the fetch at all). Not used
+     * by <SvgInSuspense /> (Suspense's render-as-you-fetch model always
+     * starts eagerly). Default `'eager'`.
      */
     loading?: 'eager' | 'lazy';
 }

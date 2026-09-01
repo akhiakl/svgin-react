@@ -76,15 +76,30 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
     const hasSanitizeFn = sanitizeFn !== undefined;
 
     // Lazy loading: don't start the fetch until the placeholder scrolls near
-    // the viewport. Ignored when `svg` is given directly (there is nothing
-    // to fetch) or IntersectionObserver isn't available - eager loading is
-    // always a safe fallback, never a regression from always-eager loading.
+    // the viewport. Only applies when the *default* placeholder actually
+    // renders: a custom `loadingFallback` is an arbitrary ReactNode with no
+    // guaranteed single DOM node to attach `svgRef`/observe, so deferring in
+    // that case would mean never observing anything and the fetch never
+    // starting - ignore `loading="lazy"` there instead (falls back to eager,
+    // never a silent deadlock). Also ignored when `svg` is given directly
+    // (there is nothing to fetch) or IntersectionObserver isn't available.
     // Checked live (not cached at module scope) so a polyfill installed
     // after this module first loads is still picked up.
-    const shouldDefer = loading === 'lazy' && svgProp === undefined && typeof IntersectionObserver !== 'undefined';
-    const [shouldLoad, setShouldLoad] = useState(!shouldDefer);
+    const canDefer =
+        loading === 'lazy' &&
+        loadingFallback === undefined &&
+        svgProp === undefined &&
+        typeof IntersectionObserver !== 'undefined';
+    const [shouldLoad, setShouldLoad] = useState(!canDefer);
     useEffect(() => {
-        if (!shouldDefer || shouldLoad) return;
+        if (!canDefer) {
+            // Covers both "never deferring" and deferral turning off after
+            // mount (e.g. `loading` switching from 'lazy' to 'eager', or
+            // `loadingFallback` being set) - a no-op once already true.
+            setShouldLoad(true);
+            return;
+        }
+        if (shouldLoad) return;
         const el = svgRef.current;
         if (!el) return;
         const observer = new IntersectionObserver(
@@ -98,7 +113,7 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
         );
         observer.observe(el);
         return () => observer.disconnect();
-    }, [shouldDefer, shouldLoad]);
+    }, [canDefer, shouldLoad]);
 
     useEffect(() => {
         if (!shouldLoad) return;

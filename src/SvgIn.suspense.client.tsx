@@ -5,6 +5,28 @@ import { sanitizeSvgString } from './utils/sanitizeSvgStringClient';
 import { SvgInComponent } from './SvgInComponent';
 import { nextInstanceId } from './utils/instanceId';
 
+// Tracks which (promise, onError) pairs have already been notified, keyed at
+// module scope rather than per-component-instance: when use() throws a
+// rejection, React re-invokes this component multiple times as part of its
+// own error-recovery pass (remounting a fresh instance - fresh refs/state -
+// to confirm the error isn't transient before committing to the error
+// boundary), so a per-instance ref cannot dedupe across those internal
+// retries. A promise settles once, so entries here are naturally bounded and
+// this WeakMap/WeakSet pair lets both the promise and the callback be
+// garbage-collected once nothing else references them.
+const notifiedErrors = new WeakMap<Promise<unknown>, WeakSet<(error: Error) => void>>();
+
+function notifyOnErrorOnce(promise: Promise<string>, onError: (error: Error) => void): void {
+    let seen = notifiedErrors.get(promise);
+    if (!seen) {
+        seen = new WeakSet();
+        notifiedErrors.set(promise, seen);
+    }
+    if (seen.has(onError)) return;
+    seen.add(onError);
+    promise.catch(onError);
+}
+
 function resolvePromise(
     src: string | undefined,
     svgProp: string | undefined,
@@ -59,10 +81,14 @@ export const SvgInSuspense: React.FC<Omit<SvgInProps, 'fallback' | 'loadingFallb
     onMountRef.current = onMount;
 
     const promise = resolvePromise(src, svgProp, sanitizeFn, disableSanitization);
-    // A side-channel notification only: subscribing another .catch() handler
-    // does not change what use() itself sees or throws below, so onError can
-    // fire without interfering with Suspense/error-boundary behavior.
-    if (onError) promise.catch(onError);
+    // A side-channel notification only: subscribing a .catch() handler does
+    // not change what use() itself sees or throws below, so onError can fire
+    // without interfering with Suspense/error-boundary behavior. Deduped by
+    // (promise, onError) at module scope - see notifyOnErrorOnce - rather
+    // than by a ref on this instance, since it must survive React re-
+    // invoking this component during its own error-recovery pass, not just
+    // an ordinary re-render.
+    if (onError) notifyOnErrorOnce(promise, onError);
     const resolved = use(promise);
 
     useEffect(() => {

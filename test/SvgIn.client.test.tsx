@@ -339,6 +339,33 @@ describe('SvgIn (client component)', () => {
             await waitFor(() => expect(mockSanitizeString).toHaveBeenCalled());
             expect(observed).toHaveLength(0);
         });
+
+        it('loads eagerly (ignores lazy) when loadingFallback is set, instead of deadlocking', async () => {
+            // Regression test: a custom loadingFallback is an arbitrary
+            // ReactNode with no guaranteed DOM node to observe, so deferring
+            // in that case used to mean the IntersectionObserver never
+            // attached to anything and the fetch never started.
+            mockFetch.mockResolvedValue('<svg><circle/></svg>');
+            const { container } = render(
+                <SvgIn src="/a.svg" loading="lazy" loadingFallback={<span>spinner</span>} />
+            );
+            await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+            expect(observed).toHaveLength(0);
+            await waitFor(() => expect(container.querySelector('circle')).not.toBeNull());
+        });
+
+        it('starts loading once deferral turns off after mount (loading switches to eager)', async () => {
+            // Regression test: shouldLoad used to stay false forever once
+            // set, even after canDefer became false on a later render.
+            mockFetch.mockResolvedValue('<svg><circle/></svg>');
+            const { container, rerender } = render(<SvgIn src="/a.svg" loading="lazy" />);
+            await new Promise((r) => setTimeout(r, 10));
+            expect(mockFetch).not.toHaveBeenCalled();
+
+            rerender(<SvgIn src="/a.svg" loading="eager" />);
+            await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+            await waitFor(() => expect(container.querySelector('circle')).not.toBeNull());
+        });
     });
 
     describe('SvgInProvider', () => {

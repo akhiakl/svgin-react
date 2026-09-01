@@ -104,6 +104,43 @@ describe('SvgInSuspense (client component)', () => {
         expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'boom' }));
     });
 
+    it('calls onError only once, even if the component re-renders while the same promise is still pending', async () => {
+        // Regression test: promise.catch(onError) used to be attached on
+        // every render, so a re-render before settlement (e.g. a parent
+        // re-rendering for an unrelated reason) attached a second handler,
+        // and the eventual rejection called onError twice.
+        let reject!: (e: Error) => void;
+        mockFetch.mockReturnValue(new Promise((_r, rj) => { reject = rj; }));
+        const onError = vi.fn();
+
+        let rerender!: (ui: React.ReactElement) => void;
+        await act(async () => {
+            ({ rerender } = render(
+                <ErrorBoundary>
+                    <React.Suspense fallback={<span>loading...</span>}>
+                        <SvgInSuspense src="/missing.svg" onError={onError} title="first" />
+                    </React.Suspense>
+                </ErrorBoundary>
+            ));
+        });
+        // Same src (same cached promise identity) - just a re-render while
+        // still pending.
+        await act(async () => {
+            rerender(
+                <ErrorBoundary>
+                    <React.Suspense fallback={<span>loading...</span>}>
+                        <SvgInSuspense src="/missing.svg" onError={onError} title="second" />
+                    </React.Suspense>
+                </ErrorBoundary>
+            );
+        });
+
+        await act(async () => {
+            reject(new Error('boom'));
+        });
+        expect(onError).toHaveBeenCalledTimes(1);
+    });
+
     it('calls onMount with the rendered svg element once resolved', async () => {
         mockFetch.mockResolvedValue('<svg><path/></svg>');
         const onMount = vi.fn();
