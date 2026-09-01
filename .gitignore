@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 dist/
+site/dist/
 
 # Logs
 npm-debug.log*

@@ -8,6 +8,8 @@
 
 Fetch an SVG from a URL and render it as a real, styleable React element — not an `<img>`. Sanitized by default, so it's safe with SVGs you didn't create yourself. Works in the browser and in React Server Components (Next.js App Router, plain SSR, and everywhere else).
 
+**[Try the Inspector →](https://akhiakl.github.io/svgin-react/)** paste your own SVG (or something you don't trust) and see exactly what the default sanitizer strips, live, in your browser.
+
 ```tsx
 import { SvgIn } from 'svgin-react';
 

@@ -6,9 +6,9 @@ import { defineConfig } from "eslint/config";
 
 
 export default defineConfig([
-  { ignores: ["dist/**", "node_modules/**", "coverage/**"] },
+  { ignores: ["dist/**", "site/dist/**", "node_modules/**", "coverage/**"] },
   { files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"], plugins: { js }, extends: ["js/recommended"], languageOptions: { globals: globals.browser } },
-  { files: ["scripts/**/*.mjs", "*.config.{js,mjs,ts}"], languageOptions: { globals: globals.node } },
+  { files: ["scripts/**/*.mjs", "*.config.{js,mjs,ts}", "site/vite.config.mts"], languageOptions: { globals: globals.node } },
   tseslint.configs.recommended,
   pluginReact.configs.flat.recommended,
   pluginReact.configs.flat["jsx-runtime"],

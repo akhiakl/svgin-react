@@ -20,6 +20,7 @@ This file is the shared source of instructions for AI coding tools working in th
 - `src/utils/sanitizeSvgStringBase.ts` (+ `sanitizeSvgStringClient.ts`/`sanitizeSvgStringServer.ts`) — sanitize + cache orchestration for the `svg` (raw markup) prop, mirrors the above minus the fetch step.
 - `src/utils/svgCache.ts`, `src/utils/universalCache.ts` — caching (React `cache()` in RSC, an in-memory fallback elsewhere).
 - `test/` — Vitest tests, one file per source module being tested.
+- `site/` — the standalone "Inspector" static site (paste an SVG, see what the default sanitizer strips, all client-side), deployed to GitHub Pages. Separate Vite build from the package (`pnpm run site:dev`/`site:build`), imports the library straight from `src/` so the demo always reflects current code. Not part of the published npm package - `pnpm run size`'s budgets do not apply to it.
 
 ## Before making a change
 
@@ -43,6 +44,13 @@ pnpm run size
 ```
 
 Add or update a test in `test/` for any behavior change. A change is not finished until these all pass.
+
+A change that touches `site/` (or `src/`, which it imports directly) should also pass:
+
+```sh
+pnpm run typecheck:site
+pnpm run site:build
+```
 
 ## Commit and pull request conventions
 
