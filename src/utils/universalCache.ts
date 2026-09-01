@@ -32,7 +32,7 @@ const symbolIds = new Map<symbol, number>();
  * sanitizer collide with, and return the cached result of, an unrelated
  * default-mode call for the same URL. See fetchAndSanitizeSvgBase.ts.
  */
-function stableKey(value: unknown): string {
+export function stableKey(value: unknown): string {
     if (typeof value === 'function') {
         let id = fnIds.get(value);
         if (id === undefined) {

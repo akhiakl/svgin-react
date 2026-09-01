@@ -113,7 +113,7 @@ await preloadSvg('https://example.com/icon.svg', {
 | `loadingFallback` | `ReactNode` | — | Client component only. Rendered while pending, instead of the default placeholder. |
 | `loading` | `'eager' \| 'lazy'` | — | Client component only. `'lazy'` defers the fetch until near the viewport. |
 
-`<SvgIn />` has no `suspense` prop - use the separate `<SvgInSuspense />` component instead (same `src`/`svg`/`sanitizeFn`/`disableSanitization`/`title`/`description`/`onError`/`onMount` props; no `fallback`/`loadingFallback`/`loading`, pair with a `<Suspense>` boundary instead).
+`<SvgIn />` has no `suspense` prop - use the separate `<SvgInSuspense />` component instead (same `src`/`svg`/`sanitizeFn`/`disableSanitization`/`title`/`description`/`onError`/`onMount` props; no `fallback`/`loadingFallback`/`loading`, pair with a `<Suspense>` boundary instead). `<SvgInSuspense />` does not retry a failed `src`/`svg` combination on its own - it keeps throwing the same rejection to the error boundary for that combination indefinitely; retry by changing `src` (e.g. a cache-busting query string) rather than re-rendering with identical props.
 
 ## Entry points
 

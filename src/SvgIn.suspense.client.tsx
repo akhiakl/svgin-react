@@ -4,6 +4,7 @@ import { fetchAndSanitizeSvg } from './utils/fetchAndSanitizeSvgClient';
 import { sanitizeSvgString } from './utils/sanitizeSvgStringClient';
 import { SvgInComponent } from './SvgInComponent';
 import { nextInstanceId } from './utils/instanceId';
+import { stableKey } from './utils/universalCache';
 
 // Tracks which (promise, onError) pairs have already been notified, keyed at
 // module scope rather than per-component-instance: when use() throws a
@@ -27,34 +28,80 @@ function notifyOnErrorOnce(promise: Promise<string>, onError: (error: Error) => 
     promise.catch(onError);
 }
 
+// use() requires a *stable* promise reference across every render of the
+// same logical request - including the extra render(s) React performs
+// during its own error-recovery pass when a use()'d promise rejects (see the
+// notifiedErrors comment above). fetchAndSanitizeSvg/sanitizeSvgString are
+// wrapped in setUniversalCache, whose in-memory fallback deliberately evicts
+// a *rejected* entry as soon as it settles, so a later, independent call
+// (e.g. <SvgIn />'s effect re-running after a remount) can retry instead of
+// replaying the same failure forever. That eviction is correct for <SvgIn />,
+// but SvgInSuspense calls this every render (not from an effect gated on
+// deps), so calling it again during React's error-recovery re-render - which
+// happens before this rejection has had any real reason to stop being "the
+// same attempt" - hits the now-evicted cache and starts a *new* fetch, which
+// suspends again instead of letting use() rethrow the original rejection.
+// Against a URL that fails on every attempt this loops forever (confirmed
+// via a real fetch mock: 85+ fetches/second, never settling). Pinning one
+// promise per key here, independent of the shared cache's own eviction,
+// fixes it: once a (src, svg, sanitizeFn, disableSanitization) combination
+// has settled, every future render for that exact combination gets the same
+// settled promise - including a remount via a changed `key` prop, since
+// `key` isn't part of this cache key. A rejected combination therefore stays
+// rejected for the lifetime of the page; retrying means changing one of
+// these inputs (e.g. a cache-busting query string appended to `src`), the
+// same tradeoff a Suspense-based cache like React Query's makes rather than
+// silently re-attempting a request that failed every time it was tried.
+//
+// Never evicted on the resolved path either, same as svgCache.ts - in
+// practice bounded by the number of distinct src/svg values a page ever
+// renders via <SvgInSuspense />.
+const suspensePromises = new Map<string, Promise<string>>();
+
+/** Test-only: clears pinned promises so tests don't leak state between cases (mirrors clearSvgCache in svgCache.ts). */
+export function clearSuspensePromiseCache(): void {
+    suspensePromises.clear();
+}
+
 function resolvePromise(
     src: string | undefined,
     svgProp: string | undefined,
     sanitizeFn: ((svg: string) => Promise<string>) | undefined,
     disableSanitization: boolean | undefined
 ): Promise<string> {
-    if (svgProp !== undefined) return sanitizeSvgString(svgProp, { sanitizeFn, disableSanitization });
-    if (src !== undefined) return fetchAndSanitizeSvg(src, { sanitizeFn, disableSanitization });
-    // A plain synchronous throw, not a rejected Promise: use() requires a
-    // *cached*, stable-identity promise (fetchAndSanitizeSvg/sanitizeSvgString
-    // both provide that via setUniversalCache) - a fresh Promise.reject(...)
-    // created inline on every render would violate that contract and cause
-    // React to loop instead of suspending properly. A synchronous throw here
-    // needs no such caching: it's caught by the nearest error boundary the
-    // same way any other render-time exception is. Note this means onError's
-    // .catch() below never sees this specific case (there is no promise to
-    // attach it to) - the error boundary is this misuse case's only handler.
-    throw new Error('<SvgInSuspense /> requires either `src` or `svg`.');
+    if (svgProp === undefined && src === undefined) {
+        // A plain synchronous throw, not a rejected Promise: use() requires a
+        // *cached*, stable-identity promise (see suspensePromises above) - a
+        // fresh Promise.reject(...) created inline on every render would
+        // violate that contract and cause React to loop instead of
+        // suspending properly. A synchronous throw here needs no such
+        // caching: it's caught by the nearest error boundary the same way as
+        // any other render-time exception. Note this means onError's
+        // .catch() below never sees this specific case (there is no promise
+        // to attach it to) - the error boundary is this misuse case's only
+        // handler.
+        throw new Error('<SvgInSuspense /> requires either `src` or `svg`.');
+    }
+
+    const key = stableKey([src, svgProp, sanitizeFn, disableSanitization]);
+    let promise = suspensePromises.get(key);
+    if (promise === undefined) {
+        promise =
+            svgProp !== undefined
+                ? sanitizeSvgString(svgProp, { sanitizeFn, disableSanitization })
+                : fetchAndSanitizeSvg(src as string, { sanitizeFn, disableSanitization });
+        suspensePromises.set(key, promise);
+    }
+    return promise;
 }
 
 /**
  * Suspends via React 19's use() instead of managing its own loading/error
- * state: pending renders throw the shared cached promise (caught by the
- * nearest <Suspense>), a rejection throws the reason (caught by the nearest
- * error boundary). fetchAndSanitizeSvg/sanitizeSvgString are both memoized
- * (setUniversalCache), so calling them again on every render returns the
- * *same* promise for the same arguments instead of starting a new fetch -
- * exactly the stable identity use() needs to avoid re-suspending forever.
+ * state: pending renders throw the cached promise (caught by the nearest
+ * <Suspense>), a rejection throws the reason (caught by the nearest error
+ * boundary). resolvePromise pins one promise per (src, svg, sanitizeFn,
+ * disableSanitization) key - see its own comment for why this can't just
+ * delegate to fetchAndSanitizeSvg/sanitizeSvgString's own memoization.
  *
  * A standalone component rather than a `suspense` prop on <SvgIn />
  * on purpose: keeping it out of <SvgIn />'s own code path means a consumer
