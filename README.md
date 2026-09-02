@@ -14,6 +14,8 @@ import { SvgIn } from 'svgin-react';
 <SvgIn src="/icons/alert.svg" width={24} fill="#f00" />
 ```
 
+**[Try it live](https://svgin-react-tryit.vercel.app)** — paste your own SVG markup and see exactly what the sanitizer strips, or click through the RSC, Suspense, provider-defaults, and lazy-loading demos.
+
 ## Why not just use an `<img>` tag?
 
 An `<img src="icon.svg">` can't be styled with CSS: no color changes, no path animation, no targeting inner elements. To do any of that, the SVG markup has to be inlined into the page.
