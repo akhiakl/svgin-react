@@ -131,6 +131,10 @@ await preloadSvg('https://example.com/icon.svg', {
 - Only default-sanitized results are shared in the module-level cache. Raw (`disableSanitization`) and custom-sanitizer results are never written to or read from the shared cache, preventing a raw result from leaking as a sanitized result for another caller.
 - The fetch rejects early on unexpected `Content-Type` responses (e.g. HTML pages returned for a typo'd URL) to avoid wasting sanitizer CPU on non-SVG content.
 
+## Known limitations
+
+An inline `<style>` block inside a source SVG is not scoped to that SVG - svgin-react renders via `dangerouslySetInnerHTML`, not a shadow root or `<iframe>`, so a `<style>` tag's rules apply page-wide like any other `<style>` element, and its id/class selectors can match same-named elements elsewhere on the page. The automatic id-uniquification (`uniquifyIds`) that keeps multiple instances of the same icon from colliding over a shared `<linearGradient>`/`<clipPath>`/`<mask>`/`<filter>` only rewrites `id="..."` attributes and `url(#id)`/`href="#id"` references - it does not rewrite CSS selectors inside a `<style>` block, so a `<style>` rule targeting an element by id (e.g. `#icon-a path {...}`) stops matching once that id is suffixed. Sanitization intentionally leaves well-formed `<style>` content in place (it only strips genuinely unsafe content like `<script>`/event handlers) rather than stripping or auto-scoping it. If a source SVG relies on `<style>` with id/class selectors, prefer presentation attributes (`fill`, `stroke`, etc.) instead, which both `uniquifyIds` and normal React styling handle correctly.
+
 ## Comparison to similar packages
 
 Measured with the same tooling (esbuild, minified, gzipped, `react`/`react-dom` externalized) used by this repo's own bundle-size budget check (`scripts/check-bundle-size.mjs`):
