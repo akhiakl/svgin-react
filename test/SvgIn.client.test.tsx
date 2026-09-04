@@ -169,6 +169,20 @@ describe('SvgIn (client component)', () => {
         expect(mockRelease).not.toHaveBeenCalled();
     });
 
+    it('does not call release when both svg and src are given (svg takes precedence, fetchAndSanitizeSvg is never called)', async () => {
+        // Regression test for a real bug found in review: `svg` takes
+        // precedence over `src` (see resolveSvgPromise), so this instance
+        // never acquires a share of any in-flight fetch for `src`.
+        // Releasing anyway on unmount would decrement (and potentially
+        // abort) an unrelated fetch some other mounted <SvgIn src={...} />
+        // instance is still relying on.
+        mockSanitizeString.mockReturnValue(new Promise(() => {}));
+        const { unmount } = render(<SvgIn svg="<svg><path/></svg>" src="/a.svg" />);
+        expect(mockFetch).not.toHaveBeenCalled();
+        unmount();
+        expect(mockRelease).not.toHaveBeenCalled();
+    });
+
     it('passes sanitizeFn and disableSanitization through to fetchAndSanitizeSvg', async () => {
         mockFetch.mockResolvedValue('<svg><path/></svg>');
         const customFn = vi.fn();

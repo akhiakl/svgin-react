@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createFetchAndSanitizeSvg, releaseFetchAndSanitizeSvg } from '../src/utils/fetchAndSanitizeSvgBase';
+import { createFetchAndSanitizeSvg } from '../src/utils/fetchAndSanitizeSvgBase';
 import { clearSvgCache } from '../src/utils/svgCache';
 
 function mockFetchOnce(body: string) {
@@ -25,7 +25,7 @@ describe('createFetchAndSanitizeSvg', () => {
     it('sanitizes with the default sanitizer and caches the result', async () => {
         mockFetchOnce('<svg><script>evil()</script></svg>');
         const defaultSanitize = vi.fn().mockResolvedValue('<svg>clean</svg>');
-        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(defaultSanitize);
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(defaultSanitize);
 
         const first = await fetchAndSanitizeSvg('https://example.com/a.svg');
         expect(first).toBe('<svg>clean</svg>');
@@ -42,7 +42,7 @@ describe('createFetchAndSanitizeSvg', () => {
 
     it('throws when the fetch response is not ok', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
-        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn());
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn());
         await expect(fetchAndSanitizeSvg('https://example.com/missing.svg')).rejects.toThrow(
             'Failed to fetch SVG'
         );
@@ -50,7 +50,7 @@ describe('createFetchAndSanitizeSvg', () => {
 
     it('does not poison the shared cache with a disableSanitization result', async () => {
         const defaultSanitize = vi.fn().mockResolvedValue('<svg>sanitized</svg>');
-        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(defaultSanitize);
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(defaultSanitize);
 
         // A raw/untrusted call for this URL happens first.
         mockFetchOnce('<svg><script>evil()</script></svg>');
@@ -70,7 +70,7 @@ describe('createFetchAndSanitizeSvg', () => {
 
     it('does not poison the shared cache with a custom sanitizeFn result', async () => {
         const defaultSanitize = vi.fn().mockResolvedValue('<svg>default-clean</svg>');
-        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(defaultSanitize);
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(defaultSanitize);
         const customSanitize = vi.fn().mockResolvedValue('<svg>custom-clean</svg>');
 
         mockFetchOnce('<svg>raw</svg>');
@@ -91,7 +91,7 @@ describe('createFetchAndSanitizeSvg', () => {
             .mockResolvedValue({ ok: true, text: () => Promise.resolve('<svg>raw</svg>') });
         vi.stubGlobal('fetch', fetchMock);
 
-        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn());
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn());
         const customSanitize = vi.fn().mockResolvedValue('<svg>custom</svg>');
 
         await fetchAndSanitizeSvg('https://example.com/shared3.svg', { disableSanitization: true });
@@ -120,7 +120,7 @@ describe('createFetchAndSanitizeSvg', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         const defaultSanitize = vi.fn().mockResolvedValue('<svg>default-clean</svg>');
-        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(defaultSanitize);
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(defaultSanitize);
         const customSanitize = vi.fn().mockResolvedValue('<svg>custom-clean</svg>');
 
         const custom = await fetchAndSanitizeSvg('https://example.com/shared4.svg', {
@@ -140,7 +140,7 @@ describe('createFetchAndSanitizeSvg', () => {
         // still be memoized like any other call.
         mockFetchOnce('<svg>raw</svg>');
         const customSanitize = vi.fn().mockResolvedValue('<svg>custom-clean</svg>');
-        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn());
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn());
 
         const first = await fetchAndSanitizeSvg('https://example.com/reuse.svg', {
             sanitizeFn: customSanitize,
@@ -162,7 +162,7 @@ describe('createFetchAndSanitizeSvg', () => {
         // refetch on every subsequent call.
         mockFetchOnce('<svg><script>evil()</script></svg>');
         const defaultSanitize = vi.fn().mockResolvedValue('');
-        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(defaultSanitize);
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(defaultSanitize);
 
         const first = await fetchAndSanitizeSvg('https://example.com/empty.svg');
         const second = await fetchAndSanitizeSvg('https://example.com/empty.svg');
@@ -179,7 +179,7 @@ describe('createFetchAndSanitizeSvg', () => {
             headers: { get: () => 'text/html; charset=utf-8' },
             text: () => Promise.resolve('<html>not an svg</html>'),
         }));
-        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn());
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn());
         await expect(
             fetchAndSanitizeSvg('https://example.com/page.html')
         ).rejects.toThrow('Unexpected content-type');
@@ -192,7 +192,7 @@ describe('createFetchAndSanitizeSvg', () => {
             headers: { get: () => 'image/svg+xml' },
             text: () => Promise.resolve('<svg><path/></svg>'),
         }));
-        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(sanitize);
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(sanitize);
         await expect(
             fetchAndSanitizeSvg('https://example.com/icon.svg')
         ).resolves.toBe('<svg><path/></svg>');
@@ -209,7 +209,7 @@ describe('createFetchAndSanitizeSvg', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
         const defaultSanitize = vi.fn().mockResolvedValue('<svg>clean</svg>');
-        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(defaultSanitize);
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(defaultSanitize);
 
         const first = fetchAndSanitizeSvg('https://example.com/concurrent.svg');
         const second = fetchAndSanitizeSvg('https://example.com/concurrent.svg');
@@ -233,7 +233,7 @@ describe('createFetchAndSanitizeSvg', () => {
             ok: true,
             text: () => Promise.resolve('<svg><path/></svg>'),
         }));
-        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(sanitize);
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(sanitize);
         await expect(
             fetchAndSanitizeSvg('https://example.com/icon2.svg')
         ).resolves.toBe('<svg><path/></svg>');
@@ -241,6 +241,7 @@ describe('createFetchAndSanitizeSvg', () => {
 
     describe('releaseFetchAndSanitizeSvg', () => {
         it('is a no-op when nothing is pending for that url/options', () => {
+            const { releaseFetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn());
             expect(() => releaseFetchAndSanitizeSvg('https://example.com/never-called.svg')).not.toThrow();
         });
 
@@ -251,7 +252,7 @@ describe('createFetchAndSanitizeSvg', () => {
                 return new Promise(() => {}); // never resolves
             });
             vi.stubGlobal('fetch', fetchMock);
-            const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn());
+            const { fetchAndSanitizeSvg, releaseFetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn());
 
             // Two "callers" acquire a share of the same in-flight request.
             fetchAndSanitizeSvg('https://example.com/refcount.svg');
@@ -272,7 +273,7 @@ describe('createFetchAndSanitizeSvg', () => {
                 return new Promise(() => {});
             });
             vi.stubGlobal('fetch', fetchMock);
-            const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn());
+            const { fetchAndSanitizeSvg, releaseFetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn());
 
             fetchAndSanitizeSvg('https://example.com/single.svg');
             releaseFetchAndSanitizeSvg('https://example.com/single.svg');
@@ -290,7 +291,7 @@ describe('createFetchAndSanitizeSvg', () => {
                 return new Promise(() => {});
             });
             vi.stubGlobal('fetch', fetchMock);
-            const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn());
+            const { fetchAndSanitizeSvg, releaseFetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn());
             const customFn = vi.fn();
 
             fetchAndSanitizeSvg('https://example.com/keyed.svg');
@@ -309,13 +310,53 @@ describe('createFetchAndSanitizeSvg', () => {
 
         it('is a no-op once the request has already settled', async () => {
             mockFetchOnce('<svg>ok</svg>');
-            const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn().mockResolvedValue('<svg>ok</svg>'));
+            const { fetchAndSanitizeSvg, releaseFetchAndSanitizeSvg } = createFetchAndSanitizeSvg(
+                vi.fn().mockResolvedValue('<svg>ok</svg>')
+            );
 
             await fetchAndSanitizeSvg('https://example.com/settled.svg');
             // The pending entry is torn down once the promise settles, so this
             // release (arriving after resolution, e.g. a component unmounting
             // after its data already arrived) must not throw or affect anything.
             expect(() => releaseFetchAndSanitizeSvg('https://example.com/settled.svg')).not.toThrow();
+        });
+
+        it('keeps bookkeeping fully separate between two createFetchAndSanitizeSvg instances', async () => {
+            // Regression test for a real bug found in review: pendingByKey used
+            // to live at module scope, shared across every createFetchAndSanitizeSvg
+            // call (e.g. the client and server entry points, which could both be
+            // loaded in the same JS process by a framework that SSRs client
+            // components alongside RSC server components). Two instances using
+            // the exact same url/sanitizeFn/disableSanitization key must not
+            // share a PendingEntry - releasing one instance's share must never
+            // abort the other instance's independent underlying fetch.
+            let signalA: AbortSignal | undefined;
+            let signalB: AbortSignal | undefined;
+            const fetchMockA = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+                signalA = init?.signal ?? undefined;
+                return new Promise(() => {});
+            });
+            const fetchMockB = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+                signalB = init?.signal ?? undefined;
+                return new Promise(() => {});
+            });
+
+            const instanceA = createFetchAndSanitizeSvg(vi.fn());
+            vi.stubGlobal('fetch', fetchMockA);
+            instanceA.fetchAndSanitizeSvg('https://example.com/isolated.svg');
+
+            const instanceB = createFetchAndSanitizeSvg(vi.fn());
+            vi.stubGlobal('fetch', fetchMockB);
+            instanceB.fetchAndSanitizeSvg('https://example.com/isolated.svg');
+
+            // Releasing instance B's only share aborts instance B's fetch, but
+            // must leave instance A's still-in-flight fetch untouched.
+            instanceB.releaseFetchAndSanitizeSvg('https://example.com/isolated.svg');
+            expect(signalB?.aborted).toBe(true);
+            expect(signalA?.aborted).toBe(false);
+
+            instanceA.releaseFetchAndSanitizeSvg('https://example.com/isolated.svg');
+            expect(signalA?.aborted).toBe(true);
         });
     });
 });

@@ -19,22 +19,25 @@ interface PendingEntry {
     n: number;
 }
 
-// Keyed by the same tuple that identifies a request for caching purposes
-// (see computeKey), so two calls that would share a cached/deduped fetch
-// also share the same cancellation bookkeeping. Shared at module scope
-// across every createFetchAndSanitizeSvg instance (client and server
-// sanitizers both call this factory once each) - keys already fully
-// determine request identity via url+sanitizeFn+disableSanitization, and a
-// client-side call and a server-side call are never in flight in the same
-// JS runtime at once in practice, so sharing this map costs nothing and
-// keeps the cancellation bookkeeping in one place.
-const pendingByKey = new Map<string, PendingEntry>();
-
 function computeKey(url: string, options?: FetchAndSanitizeOptions): string {
     return stableKey([url, options?.sanitizeFn, options?.disableSanitization]);
 }
 
 export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string | Promise<string>) {
+    // Scoped to this createFetchAndSanitizeSvg call, not module scope: the
+    // client and server entry points each call this factory once with their
+    // own sanitizer, and a framework can load both modules in the same JS
+    // process (e.g. a server rendering both RSC server components and the
+    // client bundle's SSR/hydration path for the same request). A shared,
+    // module-level map keyed only on url+sanitizeFn+disableSanitization
+    // would let a client-side and server-side request for the same key
+    // collide on one PendingEntry despite running two entirely separate
+    // underlying fetches - the first to settle would tear down bookkeeping
+    // the other still needs, and a release for one could abort the other's
+    // fetch. A map per factory instance keeps client and server requests in
+    // fully separate bookkeeping regardless of what else shares the process.
+    const pendingByKey = new Map<string, PendingEntry>();
+
     async function fetchAndSanitizeSvgImpl(
         url: string,
         options?: FetchAndSanitizeOptions & { signal?: AbortSignal }
@@ -103,23 +106,20 @@ export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string |
         return promise;
     }
 
-    return fetchAndSanitizeSvg;
-}
-
-/**
- * Releases one caller's share of the in-flight fetch identified by `url` +
- * `options` (the same arguments passed to the `fetchAndSanitizeSvg`
- * returned by createFetchAndSanitizeSvg). Only aborts the underlying fetch
- * once every caller that acquired a share of it has released - a no-op if
- * the request already settled, was never started, or other callers still
- * need it.
- */
-export function releaseFetchAndSanitizeSvg(url: string, options?: FetchAndSanitizeOptions): void {
-    const key = computeKey(url, options);
-    const pending = pendingByKey.get(key);
-    if (!pending) return;
-    if (--pending.n <= 0) {
-        pending.c.abort();
-        pendingByKey.delete(key);
+    // Releases one caller's share of the in-flight fetch identified by
+    // `url` + `options` (the same arguments passed to fetchAndSanitizeSvg
+    // above). Only aborts the underlying fetch once every caller that
+    // acquired a share of it has released - a no-op if the request already
+    // settled, was never started, or other callers still need it.
+    function releaseFetchAndSanitizeSvg(url: string, options?: FetchAndSanitizeOptions): void {
+        const key = computeKey(url, options);
+        const pending = pendingByKey.get(key);
+        if (!pending) return;
+        if (--pending.n <= 0) {
+            pending.c.abort();
+            pendingByKey.delete(key);
+        }
     }
+
+    return { fetchAndSanitizeSvg, releaseFetchAndSanitizeSvg };
 }

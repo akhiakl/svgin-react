@@ -126,13 +126,18 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
             .catch((e) => { if (mounted) { setError(e); onErrorRef.current?.(e); } });
         return () => {
             mounted = false;
-            // Release this caller's share of the in-flight fetch (a no-op
-            // for the svg prop path, which never fetches). The underlying
-            // fetch is only actually aborted once every other mounted
-            // <SvgIn /> instance sharing the same in-flight request (same
-            // src/sanitizeFn/disableSanitization) has also unmounted or
-            // moved on to different props - see releaseFetchAndSanitizeSvg.
-            if (src !== undefined) {
+            // Release this caller's share of the in-flight fetch - but only
+            // when resolveSvgPromise actually acquired one. `svg` takes
+            // precedence over `src` (see resolveSvgPromise/SvgInProps), so
+            // when both are given this instance never called
+            // fetchAndSanitizeSvg for `src` at all; releasing it anyway
+            // would decrement (and potentially abort) an unrelated in-flight
+            // fetch some other mounted instance is still relying on. The
+            // underlying fetch is only actually aborted once every other
+            // mounted <SvgIn /> instance sharing the same in-flight request
+            // (same src/sanitizeFn/disableSanitization) has also unmounted
+            // or moved on to different props - see releaseFetchAndSanitizeSvg.
+            if (svgProp === undefined && src !== undefined) {
                 releaseFetchAndSanitizeSvg(src, { sanitizeFn: currentSanitizeFn, disableSanitization });
             }
         };
