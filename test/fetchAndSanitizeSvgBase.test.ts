@@ -362,6 +362,37 @@ describe('createFetchAndSanitizeSvg', () => {
         }
     });
 
+    it('removes the fallback combiner\'s abort listeners once the request settles normally', async () => {
+        // Regression test for a real bug found in review: the fallback
+        // combiner (used when AbortSignal.any is unavailable) attached
+        // 'abort' listeners to both input signals but never removed them
+        // when the request settled without either signal ever aborting -
+        // a caller-supplied fetchOptions.signal can be long-lived/reused
+        // across many requests, so this would leak one listener per request
+        // for as long as that signal lives.
+        const originalAny = AbortSignal.any;
+        // @ts-expect-error - simulating an environment without AbortSignal.any
+        delete AbortSignal.any;
+        try {
+            mockFetchOnce('<svg>ok</svg>');
+            const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn().mockResolvedValue('<svg>ok</svg>'));
+            const callerController = new AbortController();
+            const removeSpy = vi.spyOn(AbortSignal.prototype, 'removeEventListener');
+
+            await fetchAndSanitizeSvg('https://example.com/cleanup.svg', {
+                fetchOptions: { signal: callerController.signal },
+            });
+
+            // One removeEventListener('abort', ...) call for the refcounted
+            // signal and one for the caller's signal - both listeners torn
+            // down even though neither ever fired.
+            const abortRemovals = removeSpy.mock.calls.filter(([event]) => event === 'abort');
+            expect(abortRemovals.length).toBe(2);
+        } finally {
+            AbortSignal.any = originalAny;
+        }
+    });
+
     it('accepts a response with no Content-Type header (headers absent)', async () => {
         // Many test/mock environments omit the headers object entirely.
         // The check must be a no-op when content-type is absent.

@@ -28,16 +28,25 @@ function computeKey(url: string, options?: FetchAndSanitizeOptions): string {
 // everywhere this library runs - calling it unconditionally would throw and
 // break fetching entirely in an older runtime. Feature-detect and fall back
 // to a manual combiner: a fresh AbortController that aborts as soon as
-// either input signal does.
-function combineSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
-    if (typeof AbortSignal.any === 'function') return AbortSignal.any([a, b]);
-    if (a.aborted) return a;
-    if (b.aborted) return b;
+// either input signal does. The fallback returns a cleanup function that
+// removes both listeners once the caller is done with the combined signal
+// (the fetch settled, whether by aborting or resolving normally) - `b` in
+// particular can be a long-lived signal a caller reuses across many
+// requests, and never calling cleanup would leave a listener attached to it
+// forever for every request that never itself aborted.
+function combineSignals(a: AbortSignal, b: AbortSignal): { signal: AbortSignal; cleanup?: () => void } {
+    if (typeof AbortSignal.any === 'function') return { signal: AbortSignal.any([a, b]) };
+    if (a.aborted) return { signal: a };
+    if (b.aborted) return { signal: b };
     const controller = new AbortController();
     const onAbort = () => controller.abort();
-    a.addEventListener('abort', onAbort, { once: true });
-    b.addEventListener('abort', onAbort, { once: true });
-    return controller.signal;
+    a.addEventListener('abort', onAbort);
+    b.addEventListener('abort', onAbort);
+    const cleanup = () => {
+        a.removeEventListener('abort', onAbort);
+        b.removeEventListener('abort', onAbort);
+    };
+    return { signal: controller.signal, cleanup };
 }
 
 export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string | Promise<string>) {
@@ -90,33 +99,50 @@ export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string |
         // wrapper/mock that branches on arguments.length instead of
         // checking the second argument's value.
         const callerSignal = options?.fetchOptions?.signal;
-        const signal = options?.signal && callerSignal
-            ? combineSignals(options.signal, callerSignal)
-            : (options?.signal ?? callerSignal);
-        const res = options?.fetchOptions
-            ? await fetch(url, { ...options.fetchOptions, signal })
-            : signal
-                ? await fetch(url, { signal })
-                : await fetch(url);
-        if (!res.ok) throw new Error(`Failed to fetch SVG: ${url}`);
-        const contentType = res.headers?.get('content-type') ?? '';
-        if (contentType && !contentType.includes('svg') && !contentType.includes('xml') && !contentType.includes('octet-stream') && !contentType.includes('text/plain')) {
-            throw new Error(`Unexpected content-type for SVG: ${contentType}`);
-        }
-        const raw = await res.text();
-        let sanitized: string;
-        if (options?.disableSanitization) {
-            sanitized = raw;
-        } else if (options?.sanitizeFn) {
-            sanitized = await options.sanitizeFn(raw);
+        let signal: AbortSignal | undefined;
+        let cleanupSignal: (() => void) | undefined;
+        if (options?.signal && callerSignal) {
+            const combined = combineSignals(options.signal, callerSignal);
+            signal = combined.signal;
+            cleanupSignal = combined.cleanup;
         } else {
-            sanitized = await sanitizeSvg(raw);
+            signal = options?.signal ?? callerSignal ?? undefined;
         }
+        try {
+            const res = options?.fetchOptions
+                ? await fetch(url, { ...options.fetchOptions, signal })
+                : signal
+                    ? await fetch(url, { signal })
+                    : await fetch(url);
+            if (!res.ok) throw new Error(`Failed to fetch SVG: ${url}`);
+            const contentType = res.headers?.get('content-type') ?? '';
+            if (contentType && !contentType.includes('svg') && !contentType.includes('xml') && !contentType.includes('octet-stream') && !contentType.includes('text/plain')) {
+                throw new Error(`Unexpected content-type for SVG: ${contentType}`);
+            }
+            const raw = await res.text();
+            let sanitized: string;
+            if (options?.disableSanitization) {
+                sanitized = raw;
+            } else if (options?.sanitizeFn) {
+                sanitized = await options.sanitizeFn(raw);
+            } else {
+                sanitized = await sanitizeSvg(raw);
+            }
 
-        if (usesSharedCache) {
-            setCachedSvg(url, sanitized);
+            if (usesSharedCache) {
+                setCachedSvg(url, sanitized);
+            }
+            return sanitized;
+        } finally {
+            // Only set when combineSignals used its manual-combiner fallback
+            // (AbortSignal.any unavailable): removes the 'abort' listeners
+            // it attached to both input signals now that this request is
+            // done with the combined signal, whether it settled normally or
+            // via abort - otherwise a listener would stay attached to a
+            // caller-supplied fetchOptions.signal (which can outlive this
+            // one request, e.g. a signal a caller reuses) indefinitely.
+            cleanupSignal?.();
         }
-        return sanitized;
     }
     const dedupedFetch = setUniversalCache(fetchAndSanitizeSvgImpl);
 
