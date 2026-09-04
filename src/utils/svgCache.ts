@@ -29,9 +29,9 @@ export const hasCachedSvg = (url: string): boolean => svgCache.has(url);
  * is a cache-busting query string on `src` - this is the direct way to say
  * "the resource at this URL changed, forget what I have." Only affects the
  * shared cache `<SvgIn src={url} />` (with no `sanitizeFn`/
- * `disableSanitization`) and `preloadSvg` read from and write to; a call
- * using either of those options never touched this cache in the first
- * place, so there is nothing here for it to invalidate.
+ * `disableSanitization`/`fetchOptions`) and `preloadSvg` read from and write
+ * to; a call using any of those options never touched this cache in the
+ * first place, so there is nothing here for it to invalidate.
  * @param url SVG URL to clear. Omit to clear every cached entry.
  */
 export const clearSvgCache = (url?: string): void => {
