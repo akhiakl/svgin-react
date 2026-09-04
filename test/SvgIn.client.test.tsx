@@ -88,6 +88,30 @@ describe('SvgIn (client component)', () => {
         await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
     });
 
+    it('re-fetches when switching from no fetchOptions to fetchOptions', async () => {
+        mockFetch.mockResolvedValue('<svg><path/></svg>');
+
+        const { rerender } = render(<SvgIn src="/a.svg" />);
+        await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+
+        rerender(<SvgIn src="/a.svg" fetchOptions={{ headers: { Authorization: 'Bearer token' } }} />);
+        await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+    });
+
+    it('does not re-fetch on every render when a fresh fetchOptions object literal is passed', async () => {
+        mockFetch.mockResolvedValue('<svg><path/></svg>');
+
+        const { rerender } = render(<SvgIn src="/a.svg" fetchOptions={{ headers: { A: '1' } }} />);
+        await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+
+        // A brand-new object with different content on every render - same
+        // tradeoff as sanitizeFn (see the ref comment in SvgIn.client.tsx):
+        // presence, not identity/content, is what's tracked.
+        rerender(<SvgIn src="/a.svg" fetchOptions={{ headers: { A: '2' } }} />);
+        await new Promise(r => setTimeout(r, 50));
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
     it('does not re-fetch when only unrelated props (width, fill) change', async () => {
         mockFetch.mockResolvedValue('<svg><path/></svg>');
 
@@ -140,6 +164,16 @@ describe('SvgIn (client component)', () => {
             '/a.svg',
             expect.objectContaining({ sanitizeFn: customFn, disableSanitization: false })
         );
+    });
+
+    it('passes fetchOptions through to fetchAndSanitizeSvg', async () => {
+        mockFetch.mockResolvedValue('<svg><path/></svg>');
+        const fetchOptions = { headers: { Authorization: 'Bearer token' }, credentials: 'include' as const };
+
+        render(<SvgIn src="/a.svg" fetchOptions={fetchOptions} />);
+        await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+
+        expect(mockFetch).toHaveBeenCalledWith('/a.svg', expect.objectContaining({ fetchOptions }));
     });
 
     it('renders a <title> from the title prop and does not leak it onto the loading placeholder', async () => {
@@ -399,6 +433,34 @@ describe('SvgIn (client component)', () => {
             );
             await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
             expect(mockFetch).toHaveBeenCalledWith('/a.svg', expect.objectContaining({ sanitizeFn: providerSanitize }));
+        });
+
+        it('applies a provider-level fetchOptions default', async () => {
+            const providerFetchOptions = { headers: { Authorization: 'Bearer provider-token' } };
+            mockFetch.mockResolvedValue('<svg><path/></svg>');
+            render(
+                <SvgInProvider fetchOptions={providerFetchOptions}>
+                    <SvgIn src="/a.svg" />
+                </SvgInProvider>
+            );
+            await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+            expect(mockFetch).toHaveBeenCalledWith(
+                '/a.svg',
+                expect.objectContaining({ fetchOptions: providerFetchOptions })
+            );
+        });
+
+        it('lets an explicit fetchOptions prop override the provider default', async () => {
+            const providerFetchOptions = { headers: { Authorization: 'Bearer provider-token' } };
+            const ownFetchOptions = { headers: { Authorization: 'Bearer own-token' } };
+            mockFetch.mockResolvedValue('<svg><path/></svg>');
+            render(
+                <SvgInProvider fetchOptions={providerFetchOptions}>
+                    <SvgIn src="/a.svg" fetchOptions={ownFetchOptions} />
+                </SvgInProvider>
+            );
+            await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+            expect(mockFetch).toHaveBeenCalledWith('/a.svg', expect.objectContaining({ fetchOptions: ownFetchOptions }));
         });
     });
 });

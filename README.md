@@ -137,6 +137,7 @@ await preloadSvg('/icons/alert.svg', {
 | `description` | `string` | Injects an accessible `<desc>` — a longer description than `title`. |
 | `sanitizeFn` | `(svg: string) => Promise<string>` | Replace the default sanitizer with your own. |
 | `disableSanitization` | `boolean` | Skip sanitization entirely. Only use this for SVGs you trust. |
+| `fetchOptions` | `RequestInit` | Passed as the second argument to `fetch` for `src` - use for an authenticated endpoint (an `Authorization` header, `credentials: 'include'`, etc). Ignored when `svg` is given. See the note below. |
 | `onError` | `(error: Error) => void` | Called when the fetch or sanitization fails, alongside rendering `fallback` - for logging/telemetry. |
 | `onMount` | `(svg: SVGSVGElement) => void` | Client component only. Called with the rendered `<svg>` DOM element right after it mounts or updates. No-op on the server component (there is no DOM to hand back). |
 | `loading` | `'eager' \| 'lazy'` | Client component only. `'lazy'` defers the fetch until the placeholder scrolls near the viewport ([`IntersectionObserver`](#lazy-loading)). Default `'eager'`. |
@@ -150,6 +151,8 @@ Internal ids (on `<linearGradient>`, `<clipPath>`, `<mask>`, `<filter>`, etc.) a
 When `title` and/or `description` are set, the rendered `<svg>` also gets `aria-labelledby`/`aria-describedby` pointing at the injected `<title>`/`<desc>` ids - the more broadly-compatible way to wire an accessible name/description than relying on assistive tech to treat a bare `<title>`/`<desc>` as implicit labelling, which not every screen reader does consistently. An explicit `ariaLabel` always takes precedence over the auto-wired `aria-labelledby`.
 
 > **`sanitizeFn` identity note:** switching from *no* custom sanitizer to *any* custom sanitizer (or back) triggers a re-fetch. Replacing one custom sanitizer with a *different* one while `sanitizeFn` is already defined does **not** trigger a re-fetch, because the component tracks presence rather than identity to avoid unnecessary re-fetches from inline arrow functions. If you need to force a re-fetch when the sanitizer logic changes, change the `src` prop or remount the component.
+
+> **`fetchOptions` note:** a request using `fetchOptions` never reads from or writes to the shared cache keyed on `src` - different options can legitimately return different content for the same URL (a per-user personalized response, a request that would otherwise 401 without auth), so sharing that result across every caller of the URL would be unsafe. The same presence-not-identity tracking as `sanitizeFn` applies here too: switching between no `fetchOptions` and some triggers a re-fetch, but changing the *contents* of an already-present `fetchOptions` on a re-render does not - change `src` or remount to force a refresh with new header values. Pass `headers` as a plain object rather than a `Headers` instance so repeated identical calls are still deduplicated correctly.
 
 ### `SvgIn(props)` (server component)
 
@@ -165,9 +168,9 @@ import { SvgInSuspense } from 'svgin-react/client';
 </Suspense>
 ```
 
-Suspends via React 19's `use()` instead of managing its own loading/error state. Pending renders show the nearest `<Suspense fallback>`; a rejected fetch/sanitize is thrown to the nearest error boundary (`onError` still fires as a side notification if you pass it, but doesn't itself handle the error - pair this component with an error boundary). Takes the same `src`/`svg`/`sanitizeFn`/`disableSanitization`/`title`/`description`/`onError`/`onMount` props as `<SvgIn />`; `fallback`, `loadingFallback`, and `loading` don't apply here (there's no internal loading state to customize - Suspense's render-as-you-fetch model always starts eagerly, and the pending UI is the `<Suspense fallback>` instead).
+Suspends via React 19's `use()` instead of managing its own loading/error state. Pending renders show the nearest `<Suspense fallback>`; a rejected fetch/sanitize is thrown to the nearest error boundary (`onError` still fires as a side notification if you pass it, but doesn't itself handle the error - pair this component with an error boundary). Takes the same `src`/`svg`/`sanitizeFn`/`disableSanitization`/`fetchOptions`/`title`/`description`/`onError`/`onMount` props as `<SvgIn />`; `fallback`, `loadingFallback`, and `loading` don't apply here (there's no internal loading state to customize - Suspense's render-as-you-fetch model always starts eagerly, and the pending UI is the `<Suspense fallback>` instead).
 
-**A failed `src`/`svg` combination stays failed:** once a given `src` (or `svg`) + `sanitizeFn` + `disableSanitization` combination rejects, `<SvgInSuspense />` keeps throwing that same rejection to the error boundary on every subsequent render with those exact props - it does not silently retry, even if the underlying resource becomes available later. This is deliberate: `use()` requires a stable promise per render, and a component that re-fetched on every render would suspend forever against a URL that fails consistently (this used to be a real bug - a persistently-failing fetch caused an unbounded retry loop, never reaching the error boundary). To retry, change one of those props - e.g. append a cache-busting query string to `src` - or point your "Retry" UI at that.
+**A failed `src`/`svg` combination stays failed:** once a given `src` (or `svg`) + `sanitizeFn` + `disableSanitization` + `fetchOptions` combination rejects, `<SvgInSuspense />` keeps throwing that same rejection to the error boundary on every subsequent render with those exact props - it does not silently retry, even if the underlying resource becomes available later. This is deliberate: `use()` requires a stable promise per render, and a component that re-fetched on every render would suspend forever against a URL that fails consistently (this used to be a real bug - a persistently-failing fetch caused an unbounded retry loop, never reaching the error boundary). To retry, change one of those props - e.g. append a cache-busting query string to `src` - or point your "Retry" UI at that.
 
 **Why a separate component instead of a `suspense` prop on `<SvgIn />`:** a boolean prop decided at render time can never be tree-shaken out of a bundler's output, even for an app that never sets it - the branch is still reachable code inside the one component everyone imports. A wholly separate export *can* be dropped by any bundler that tree-shakes ESM (which is most of them) if a given app never imports it. Measured with `SvgIn`'s own module graph via esbuild (minified, gzipped, `react` externalized): a bundle importing only `{ SvgIn }` is measurably smaller than one importing `{ SvgIn, SvgInSuspense }` together - importing `SvgInSuspense` only costs you something if you actually use it.
 
@@ -186,7 +189,7 @@ import { SvgInProvider, SvgIn } from 'svgin-react/client';
 </SvgInProvider>
 ```
 
-Accepts `sanitizeFn`, `disableSanitization`, `fallback`, `loadingFallback`, `className`, `onError`, and `loading`. A prop passed directly to a given `<SvgIn />` always overrides the matching provider default; nested providers override outer ones. Client component only - Context providers require a client boundary in React Server Components, and the async server `<SvgIn />` cannot read context at all. Not read by `<SvgInSuspense />` either, for the same bundle-size reason it isn't a prop on `<SvgIn />` (see above) - depending on the provider's Context module would pull it into every consumer's bundle whether or not they use `<SvgInProvider>`.
+Accepts `sanitizeFn`, `disableSanitization`, `fetchOptions`, `fallback`, `loadingFallback`, `className`, `onError`, and `loading`. A prop passed directly to a given `<SvgIn />` always overrides the matching provider default; nested providers override outer ones. Client component only - Context providers require a client boundary in React Server Components, and the async server `<SvgIn />` cannot read context at all. Not read by `<SvgInSuspense />` either, for the same bundle-size reason it isn't a prop on `<SvgIn />` (see above) - depending on the provider's Context module would pull it into every consumer's bundle whether or not they use `<SvgInProvider>`.
 
 ### Lazy loading
 
@@ -198,7 +201,7 @@ Defers the fetch until the rendered placeholder scrolls near the viewport, via `
 
 ### `preloadSvg(url, options?)`
 
-Fetches and caches an SVG ahead of time. Accepts the same `sanitizeFn` and `disableSanitization` options as `<SvgIn />`.
+Fetches and caches an SVG ahead of time. Accepts the same `sanitizeFn`, `disableSanitization`, and `fetchOptions` options as `<SvgIn />`.
 
 ## Entry points
 
@@ -230,6 +233,12 @@ Disable sanitization (only for SVGs you trust):
 
 ```tsx
 <SvgIn src="/icons/alert.svg" disableSanitization />
+```
+
+Fetching from an authenticated endpoint:
+
+```tsx
+<SvgIn src="/api/user-uploaded-icon" fetchOptions={{ headers: { Authorization: `Bearer ${token}` } }} />
 ```
 
 Accessible name and description:

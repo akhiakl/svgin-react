@@ -4,6 +4,7 @@ import { setUniversalCache } from './universalCache';
 export interface FetchAndSanitizeOptions {
     sanitizeFn?: (svg: string) => Promise<string>;
     disableSanitization?: boolean;
+    fetchOptions?: RequestInit;
 }
 
 export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string | Promise<string>) {
@@ -11,12 +12,17 @@ export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string |
         url: string,
         options?: FetchAndSanitizeOptions
     ): Promise<string> {
-        // Only the default sanitizer's output is safe to share across every caller of
-        // this URL. `disableSanitization` and custom `sanitizeFn` results are per-call
-        // and must never be written to (or read from) the shared cache - otherwise a
-        // raw/custom result for one caller could leak out as the "sanitized" result
-        // for another caller of the same URL.
-        const usesSharedCache = !options?.disableSanitization && !options?.sanitizeFn;
+        // Only the default sanitizer's output, fetched with no special
+        // request options, is safe to share across every caller of this URL.
+        // `disableSanitization` and custom `sanitizeFn` results are per-call
+        // and must never be written to (or read from) the shared cache -
+        // otherwise a raw/custom result for one caller could leak out as the
+        // "sanitized" result for another caller of the same URL.
+        // `fetchOptions` gets the same treatment: different headers/credentials
+        // can legitimately return different content for the same URL (a
+        // personalized response, a request that would otherwise 401 without
+        // auth), so its result must stay scoped to that call too.
+        const usesSharedCache = !options?.disableSanitization && !options?.sanitizeFn && !options?.fetchOptions;
 
         if (usesSharedCache) {
             const cached = getCachedSvg(url);
@@ -26,7 +32,7 @@ export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string |
             if (cached !== undefined) return cached;
         }
 
-        const res = await fetch(url);
+        const res = await fetch(url, options?.fetchOptions);
         if (!res.ok) throw new Error(`Failed to fetch SVG: ${url}`);
         const contentType = res.headers?.get('content-type') ?? '';
         if (contentType && !contentType.includes('svg') && !contentType.includes('xml') && !contentType.includes('octet-stream') && !contentType.includes('text/plain')) {
