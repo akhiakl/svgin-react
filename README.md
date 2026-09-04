@@ -200,6 +200,24 @@ Defers the fetch until the rendered placeholder scrolls near the viewport, via `
 
 Fetches and caches an SVG ahead of time. Accepts the same `sanitizeFn` and `disableSanitization` options as `<SvgIn />`.
 
+### `clearSvgCache(url?)` / `hasCachedSvg(url)`
+
+`clearSvgCache` forgets a cached entry - the direct way to say "the resource at this URL changed, refetch it" without a cache-busting query string. Omit `url` to clear every entry. `hasCachedSvg` checks whether a URL is currently cached, without fetching it.
+
+```ts
+import { clearSvgCache, hasCachedSvg, preloadSvg } from 'svgin-react/core';
+
+hasCachedSvg('/icons/alert.svg'); // false
+await preloadSvg('/icons/alert.svg');
+hasCachedSvg('/icons/alert.svg'); // true
+
+// The underlying asset changed - the next <SvgIn src="/icons/alert.svg" />
+// (or preloadSvg call) should fetch fresh instead of reusing the old one.
+clearSvgCache('/icons/alert.svg');
+```
+
+Both only see the same shared cache `<SvgIn src={url} />` (with no `sanitizeFn`/`disableSanitization`) and `preloadSvg` read from and write to - a call using either of those options was never stored there to begin with, so there is nothing for `clearSvgCache`/`hasCachedSvg` to see for it.
+
 ## Entry points
 
 Import from a specific entry point to keep your bundle small:
@@ -207,7 +225,7 @@ Import from a specific entry point to keep your bundle small:
 - `svgin-react`: resolves to the server component in a React Server Components environment (via the `react-server` export condition), and to the client component everywhere else.
 - `svgin-react/client`: the client component only.
 - `svgin-react/server`: the server component only.
-- `svgin-react/core`: `preloadSvg` and shared types only, no React component.
+- `svgin-react/core`: `preloadSvg`, `clearSvgCache`, `hasCachedSvg`, and shared types only, no React component.
 
 ## Security
 

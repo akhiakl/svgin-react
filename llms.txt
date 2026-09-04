@@ -92,6 +92,15 @@ await preloadSvg('https://example.com/icon.svg', {
 });
 ```
 
+### Cache invalidation
+```ts
+import { clearSvgCache, hasCachedSvg } from 'svgin-react/core';
+hasCachedSvg('https://example.com/icon.svg'); // boolean, no fetch
+clearSvgCache('https://example.com/icon.svg'); // forget one entry
+clearSvgCache(); // forget everything
+```
+Both only see the shared cache (default-mode `src`/`preloadSvg` calls, no `sanitizeFn`/`disableSanitization`) - the same scope the cache itself is limited to (see Security model below).
+
 ## Props reference
 
 | Prop | Type | Required | Description |
@@ -122,7 +131,7 @@ await preloadSvg('https://example.com/icon.svg', {
 | `svgin-react` | `SvgIn` (auto: server in RSC, client elsewhere) | Minimal |
 | `svgin-react/client` | `SvgIn`, `SvgInSuspense`, `SvgInProvider` (client only) | No jsdom; `SvgInSuspense`/`SvgInProvider` are separate exports a bundler drops if unused |
 | `svgin-react/server` | `SvgIn` (server only) | Requires dompurify + jsdom |
-| `svgin-react/core` | `preloadSvg`, types | No React component |
+| `svgin-react/core` | `preloadSvg`, `clearSvgCache`, `hasCachedSvg`, types | No React component |
 
 ## Security model
 

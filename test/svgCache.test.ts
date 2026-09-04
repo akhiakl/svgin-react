@@ -24,9 +24,26 @@ describe('svgCache', () => {
         expect(getCachedSvg('https://example.com/b.svg')).toBe('<svg id="b"></svg>');
     });
 
-    it('clears every entry', () => {
+    it('clears every entry when called with no url', () => {
         setCachedSvg('https://example.com/a.svg', '<svg></svg>');
         clearSvgCache();
         expect(hasCachedSvg('https://example.com/a.svg')).toBe(false);
+    });
+
+    it('clears only the given url when one is passed', () => {
+        setCachedSvg('https://example.com/a.svg', '<svg id="a"></svg>');
+        setCachedSvg('https://example.com/b.svg', '<svg id="b"></svg>');
+
+        clearSvgCache('https://example.com/a.svg');
+
+        expect(hasCachedSvg('https://example.com/a.svg')).toBe(false);
+        expect(hasCachedSvg('https://example.com/b.svg')).toBe(true);
+        expect(getCachedSvg('https://example.com/b.svg')).toBe('<svg id="b"></svg>');
+    });
+
+    it('is a no-op when clearing a url that was never cached', () => {
+        setCachedSvg('https://example.com/a.svg', '<svg></svg>');
+        clearSvgCache('https://example.com/never-cached.svg');
+        expect(hasCachedSvg('https://example.com/a.svg')).toBe(true);
     });
 });

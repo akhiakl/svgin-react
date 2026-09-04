@@ -23,8 +23,21 @@ export const setCachedSvg = (url: string, svg: string): void => {
 export const hasCachedSvg = (url: string): boolean => svgCache.has(url);
 
 /**
- * Clear the entire SVG cache.
+ * Clears one cached entry by URL, or the entire cache if no URL is given.
+ *
+ * The only other way to force a fresh fetch for a URL already in this cache
+ * is a cache-busting query string on `src` - this is the direct way to say
+ * "the resource at this URL changed, forget what I have." Only affects the
+ * shared cache `<SvgIn src={url} />` (with no `sanitizeFn`/
+ * `disableSanitization`/`fetchOptions`) and `preloadSvg` read from and write
+ * to; a call using any of those options never touched this cache in the
+ * first place, so there is nothing here for it to invalidate.
+ * @param url SVG URL to clear. Omit to clear every cached entry.
  */
-export const clearSvgCache = (): void => {
-    svgCache.clear();
+export const clearSvgCache = (url?: string): void => {
+    if (url === undefined) {
+        svgCache.clear();
+        return;
+    }
+    svgCache.delete(url);
 };
