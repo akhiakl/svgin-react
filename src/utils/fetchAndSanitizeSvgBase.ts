@@ -4,6 +4,7 @@ import { setUniversalCache, stableKey } from './universalCache';
 export interface FetchAndSanitizeOptions {
     sanitizeFn?: (svg: string) => Promise<string>;
     disableSanitization?: boolean;
+    fetchOptions?: RequestInit;
 }
 
 // Short property names deliberately: this is internal-only bookkeeping and
@@ -20,7 +21,7 @@ interface PendingEntry {
 }
 
 function computeKey(url: string, options?: FetchAndSanitizeOptions): string {
-    return stableKey([url, options?.sanitizeFn, options?.disableSanitization]);
+    return stableKey([url, options?.sanitizeFn, options?.disableSanitization, options?.fetchOptions]);
 }
 
 export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string | Promise<string>) {
@@ -42,12 +43,17 @@ export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string |
         url: string,
         options?: FetchAndSanitizeOptions & { signal?: AbortSignal }
     ): Promise<string> {
-        // Only the default sanitizer's output is safe to share across every caller of
-        // this URL. `disableSanitization` and custom `sanitizeFn` results are per-call
-        // and must never be written to (or read from) the shared cache - otherwise a
-        // raw/custom result for one caller could leak out as the "sanitized" result
-        // for another caller of the same URL.
-        const usesSharedCache = !options?.disableSanitization && !options?.sanitizeFn;
+        // Only the default sanitizer's output, fetched with no special
+        // request options, is safe to share across every caller of this URL.
+        // `disableSanitization` and custom `sanitizeFn` results are per-call
+        // and must never be written to (or read from) the shared cache -
+        // otherwise a raw/custom result for one caller could leak out as the
+        // "sanitized" result for another caller of the same URL.
+        // `fetchOptions` gets the same treatment: different headers/credentials
+        // can legitimately return different content for the same URL (a
+        // personalized response, a request that would otherwise 401 without
+        // auth), so its result must stay scoped to that call too.
+        const usesSharedCache = !options?.disableSanitization && !options?.sanitizeFn && !options?.fetchOptions;
 
         if (usesSharedCache) {
             const cached = getCachedSvg(url);
@@ -57,7 +63,25 @@ export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string |
             if (cached !== undefined) return cached;
         }
 
-        const res = await fetch(url, { signal: options?.signal });
+        // options?.signal is the reference-counted cancellation signal (see
+        // fetchAndSanitizeSvg/releaseFetchAndSanitizeSvg below); a caller
+        // can independently supply their own signal via fetchOptions.signal
+        // (e.g. their own timeout/abort logic). When both are present,
+        // combine them so either one aborts the fetch. Only pass a second
+        // argument to fetch at all when there is actually something to pass
+        // (an init object or a signal): an explicit `fetch(url, undefined)`
+        // changes call arity vs `fetch(url)`, which can break a fetch
+        // wrapper/mock that branches on arguments.length instead of
+        // checking the second argument's value.
+        const callerSignal = options?.fetchOptions?.signal;
+        const signal = options?.signal && callerSignal
+            ? AbortSignal.any([options.signal, callerSignal])
+            : (options?.signal ?? callerSignal);
+        const res = options?.fetchOptions
+            ? await fetch(url, { ...options.fetchOptions, signal })
+            : signal
+                ? await fetch(url, { signal })
+                : await fetch(url);
         if (!res.ok) throw new Error(`Failed to fetch SVG: ${url}`);
         const contentType = res.headers?.get('content-type') ?? '';
         if (contentType && !contentType.includes('svg') && !contentType.includes('xml') && !contentType.includes('octet-stream') && !contentType.includes('text/plain')) {

@@ -225,6 +225,100 @@ describe('createFetchAndSanitizeSvg', () => {
         expect(defaultSanitize).toHaveBeenCalledTimes(1);
     });
 
+    it('passes fetchOptions through as part of the second argument to fetch', async () => {
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValue({ ok: true, text: () => Promise.resolve('<svg>raw</svg>') });
+        vi.stubGlobal('fetch', fetchMock);
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn().mockResolvedValue('<svg>clean</svg>'));
+
+        const fetchOptions = { headers: { Authorization: 'Bearer token' }, credentials: 'include' as const };
+        await fetchAndSanitizeSvg('https://example.com/auth.svg', { fetchOptions });
+
+        // Called with fetchOptions' fields plus the reference-counted
+        // cancellation signal fetchAndSanitizeSvg attaches to every call.
+        expect(fetchMock).toHaveBeenCalledWith(
+            'https://example.com/auth.svg',
+            expect.objectContaining({ ...fetchOptions, signal: expect.anything() })
+        );
+    });
+
+    it('does not poison the shared cache with a fetchOptions result, and does not read from it either', async () => {
+        const defaultSanitize = vi.fn().mockResolvedValue('<svg>anonymous-clean</svg>');
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(defaultSanitize);
+
+        // An authenticated call for this URL happens first, returning
+        // content that must not leak into the shared cache.
+        mockFetchOnce('<svg>private content</svg>');
+        const authed = await fetchAndSanitizeSvg('https://example.com/personalized.svg', {
+            fetchOptions: { headers: { Authorization: 'Bearer secret' } },
+        });
+        expect(authed).toBe('<svg>anonymous-clean</svg>');
+
+        // A later default (no fetchOptions) call for the same URL must still
+        // fetch and sanitize fresh, not reuse the authenticated response.
+        mockFetchOnce('<svg>public content</svg>');
+        const anonymous = await fetchAndSanitizeSvg('https://example.com/personalized.svg');
+        expect(anonymous).toBe('<svg>anonymous-clean</svg>');
+        expect(defaultSanitize).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not collide two different fetchOptions values for the same URL on the outer memoization layer', async () => {
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValue({ ok: true, text: () => Promise.resolve('<svg>raw</svg>') });
+        vi.stubGlobal('fetch', fetchMock);
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn().mockResolvedValue('<svg>clean</svg>'));
+
+        await fetchAndSanitizeSvg('https://example.com/multi-user.svg', {
+            fetchOptions: { headers: { Authorization: 'Bearer alice' } },
+        });
+        await fetchAndSanitizeSvg('https://example.com/multi-user.svg', {
+            fetchOptions: { headers: { Authorization: 'Bearer bob' } },
+        });
+
+        // Two distinct plain-object fetchOptions must not be treated as the
+        // same call - each is a real, separate fetch.
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('combines a caller-supplied fetchOptions.signal with the reference-counted cancellation signal', () => {
+        const capturedSignals: (AbortSignal | undefined)[] = [];
+        const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+            capturedSignals.push(init?.signal ?? undefined);
+            return new Promise(() => {});
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const { fetchAndSanitizeSvg, releaseFetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn());
+        const callerController = new AbortController();
+
+        fetchAndSanitizeSvg('https://example.com/combined-signal.svg', {
+            fetchOptions: { signal: callerController.signal },
+        });
+
+        // Either signal firing must abort the actual fetch: the caller's
+        // own signal, independent of the refcounted one still being open.
+        expect(capturedSignals[0]?.aborted).toBe(false);
+        callerController.abort();
+        expect(capturedSignals[0]?.aborted).toBe(true);
+
+        // And the refcounted signal on its own (a fresh request) must still
+        // be able to abort the fetch via releaseFetchAndSanitizeSvg even
+        // when the caller's own signal never fires. A signal has no
+        // enumerable own properties (see stableKey's documented caveat), so
+        // it doesn't need to be the exact same AbortSignal instance to key
+        // to the same pending entry - only the rest of fetchOptions has to
+        // match, which here is nothing else.
+        fetchAndSanitizeSvg('https://example.com/combined-signal-2.svg', {
+            fetchOptions: { signal: new AbortController().signal },
+        });
+        expect(capturedSignals[1]?.aborted).toBe(false);
+        releaseFetchAndSanitizeSvg('https://example.com/combined-signal-2.svg', {
+            fetchOptions: { signal: new AbortController().signal },
+        });
+        expect(capturedSignals[1]?.aborted).toBe(true);
+    });
+
     it('accepts a response with no Content-Type header (headers absent)', async () => {
         // Many test/mock environments omit the headers object entirely.
         // The check must be a no-op when content-type is absent.

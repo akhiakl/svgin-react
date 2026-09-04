@@ -10,10 +10,11 @@ function resolveSvgPromise(
     src: string | undefined,
     svgProp: string | undefined,
     sanitizeFn: ((svg: string) => Promise<string>) | undefined,
-    disableSanitization: boolean | undefined
+    disableSanitization: boolean | undefined,
+    fetchOptions: RequestInit | undefined
 ): Promise<string> {
     if (svgProp !== undefined) return sanitizeSvgString(svgProp, { sanitizeFn, disableSanitization });
-    if (src !== undefined) return fetchAndSanitizeSvg(src, { sanitizeFn, disableSanitization });
+    if (src !== undefined) return fetchAndSanitizeSvg(src, { sanitizeFn, disableSanitization, fetchOptions });
     return Promise.reject(new Error('<SvgIn /> requires either `src` or `svg`.'));
 }
 
@@ -29,6 +30,7 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
         svg: svgProp,
         sanitizeFn = defaults.sanitizeFn,
         disableSanitization = defaults.disableSanitization,
+        fetchOptions = defaults.fetchOptions,
         title,
         description,
         onError = defaults.onError,
@@ -74,6 +76,23 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
     const sanitizeFnRef = useRef(sanitizeFn);
     sanitizeFnRef.current = sanitizeFn;
     const hasSanitizeFn = sanitizeFn !== undefined;
+
+    // Same reasoning and the same tradeoff as sanitizeFnRef above: a fresh
+    // object literal passed as fetchOptions on every render would otherwise
+    // refetch on every render if depended on directly. hasFetchOptions is
+    // tracked as its own effect dependency because its presence changes
+    // whether the shared cache participates at all (see
+    // fetchAndSanitizeSvgBase.ts) - going from no fetchOptions to some (or
+    // back) is a real change in what this request can safely reuse, even
+    // though changing the *contents* of an already-present fetchOptions is
+    // not (same limitation as sanitizeFn: change src, or remount, to force
+    // a refetch with new header values).
+    const fetchOptionsRef = useRef(fetchOptions);
+    fetchOptionsRef.current = fetchOptions;
+    // fetchOptions only affects anything on the `src` (fetch) path - when
+    // `svg` is given instead, resolveSvgPromise never reaches fetchOptions
+    // at all, so its presence toggling must not trigger a re-sanitize there.
+    const hasFetchOptions = svgProp === undefined && fetchOptions !== undefined;
 
     // Lazy loading: don't start the fetch until the placeholder scrolls near
     // the viewport. Only applies when the *default* placeholder actually
@@ -121,7 +140,8 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
         setSvg(null);
         setError(null);
         const currentSanitizeFn = sanitizeFnRef.current;
-        resolveSvgPromise(src, svgProp, currentSanitizeFn, disableSanitization)
+        const currentFetchOptions = fetchOptionsRef.current;
+        resolveSvgPromise(src, svgProp, currentSanitizeFn, disableSanitization, currentFetchOptions)
             .then((sanitized) => { if (mounted) setSvg(sanitized); })
             .catch((e) => { if (mounted) { setError(e); onErrorRef.current?.(e); } });
         return () => {
@@ -135,13 +155,18 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
             // fetch some other mounted instance is still relying on. The
             // underlying fetch is only actually aborted once every other
             // mounted <SvgIn /> instance sharing the same in-flight request
-            // (same src/sanitizeFn/disableSanitization) has also unmounted
-            // or moved on to different props - see releaseFetchAndSanitizeSvg.
+            // (same src/sanitizeFn/disableSanitization/fetchOptions) has
+            // also unmounted or moved on to different props - see
+            // releaseFetchAndSanitizeSvg.
             if (svgProp === undefined && src !== undefined) {
-                releaseFetchAndSanitizeSvg(src, { sanitizeFn: currentSanitizeFn, disableSanitization });
+                releaseFetchAndSanitizeSvg(src, {
+                    sanitizeFn: currentSanitizeFn,
+                    disableSanitization,
+                    fetchOptions: currentFetchOptions,
+                });
             }
         };
-    }, [shouldLoad, src, svgProp, disableSanitization, hasSanitizeFn]);
+    }, [shouldLoad, src, svgProp, disableSanitization, hasSanitizeFn, hasFetchOptions]);
 
     // Fires after the rendered <svg> DOM node is available (or updated) -
     // this is the closest client-side equivalent to react-svg's
