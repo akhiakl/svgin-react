@@ -319,6 +319,49 @@ describe('createFetchAndSanitizeSvg', () => {
         expect(capturedSignals[1]?.aborted).toBe(true);
     });
 
+    it('falls back to a manual signal combiner when AbortSignal.any is unavailable', () => {
+        // Regression test for a real bug found in review: calling
+        // AbortSignal.any unconditionally would throw at runtime (breaking
+        // fetching entirely) in an environment without it (Node < 20.3,
+        // Safari < 17.4, Firefox < 124).
+        const originalAny = AbortSignal.any;
+        // @ts-expect-error - simulating an environment without AbortSignal.any
+        delete AbortSignal.any;
+        try {
+            const capturedSignals: (AbortSignal | undefined)[] = [];
+            const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+                capturedSignals.push(init?.signal ?? undefined);
+                return new Promise(() => {});
+            });
+            vi.stubGlobal('fetch', fetchMock);
+            const { fetchAndSanitizeSvg, releaseFetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn());
+            const callerController = new AbortController();
+
+            expect(() =>
+                fetchAndSanitizeSvg('https://example.com/no-abortsignal-any.svg', {
+                    fetchOptions: { signal: callerController.signal },
+                })
+            ).not.toThrow();
+
+            // Both the caller's own signal and the refcounted one must still
+            // be able to abort the fetch via the fallback combiner.
+            expect(capturedSignals[0]?.aborted).toBe(false);
+            callerController.abort();
+            expect(capturedSignals[0]?.aborted).toBe(true);
+
+            fetchAndSanitizeSvg('https://example.com/no-abortsignal-any-2.svg', {
+                fetchOptions: { signal: new AbortController().signal },
+            });
+            expect(capturedSignals[1]?.aborted).toBe(false);
+            releaseFetchAndSanitizeSvg('https://example.com/no-abortsignal-any-2.svg', {
+                fetchOptions: { signal: new AbortController().signal },
+            });
+            expect(capturedSignals[1]?.aborted).toBe(true);
+        } finally {
+            AbortSignal.any = originalAny;
+        }
+    });
+
     it('accepts a response with no Content-Type header (headers absent)', async () => {
         // Many test/mock environments omit the headers object entirely.
         // The check must be a no-op when content-type is absent.

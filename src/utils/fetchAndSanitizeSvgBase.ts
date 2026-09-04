@@ -24,6 +24,22 @@ function computeKey(url: string, options?: FetchAndSanitizeOptions): string {
     return stableKey([url, options?.sanitizeFn, options?.disableSanitization, options?.fetchOptions]);
 }
 
+// AbortSignal.any (Node 20.3+, Safari 17.4+, Firefox 124+) is not available
+// everywhere this library runs - calling it unconditionally would throw and
+// break fetching entirely in an older runtime. Feature-detect and fall back
+// to a manual combiner: a fresh AbortController that aborts as soon as
+// either input signal does.
+function combineSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
+    if (typeof AbortSignal.any === 'function') return AbortSignal.any([a, b]);
+    if (a.aborted) return a;
+    if (b.aborted) return b;
+    const controller = new AbortController();
+    const onAbort = () => controller.abort();
+    a.addEventListener('abort', onAbort, { once: true });
+    b.addEventListener('abort', onAbort, { once: true });
+    return controller.signal;
+}
+
 export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string | Promise<string>) {
     // Scoped to this createFetchAndSanitizeSvg call, not module scope: the
     // client and server entry points each call this factory once with their
@@ -75,7 +91,7 @@ export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string |
         // checking the second argument's value.
         const callerSignal = options?.fetchOptions?.signal;
         const signal = options?.signal && callerSignal
-            ? AbortSignal.any([options.signal, callerSignal])
+            ? combineSignals(options.signal, callerSignal)
             : (options?.signal ?? callerSignal);
         const res = options?.fetchOptions
             ? await fetch(url, { ...options.fetchOptions, signal })

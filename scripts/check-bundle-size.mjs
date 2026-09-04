@@ -23,7 +23,7 @@ const DIST = 'dist';
 // aggressively. dompurify/jsdom are external (not bundled) either way, so
 // these numbers reflect this package's own code, not its peer dependencies.
 const BUDGETS_KB_GZIP = {
-    // Bumped from 3 to 3.22: the reference-counted abort-in-flight-fetch
+    // Bumped from 3 to 3.3: the reference-counted abort-in-flight-fetch
     // feature (releaseFetchAndSanitizeSvg, called on unmount/src change so a
     // no-longer-needed fetch is actually cancelled instead of left running)
     // needed a small amount of real code the client bundle already had no
@@ -31,11 +31,14 @@ const BUDGETS_KB_GZIP = {
     // single-letter to keep this bump as small as possible. The 3.1 -> 3.15
     // step was a review fix that scopes the pending-request map per
     // createFetchAndSanitizeSvg instance instead of sharing one at module
-    // scope. The 3.15 -> 3.2 step is from combining the refcounted
+    // scope. The 3.15 -> 3.22 step is from combining the refcounted
     // cancellation signal with a caller-supplied fetchOptions.signal (via
     // AbortSignal.any) once this feature was rebased onto the fetchOptions
-    // feature (PR #51) - either signal must be able to abort the fetch.
-    'client.js': 3.22,
+    // feature (PR #51) - either signal must be able to abort the fetch. The
+    // 3.22 -> 3.3 step is a review fix that feature-detects AbortSignal.any
+    // (Node < 20.3/Safari < 17.4/Firefox < 124 lack it) and falls back to a
+    // manual AbortController-based combiner instead of throwing at runtime.
+    'client.js': 3.3,
     'server.js': 3,
     'core.js': 2,
 };
