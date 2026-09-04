@@ -219,7 +219,7 @@ hasCachedSvg('/icons/alert.svg'); // true
 clearSvgCache('/icons/alert.svg');
 ```
 
-Both only see the same shared cache `<SvgIn src={url} />` (with no `sanitizeFn`/`disableSanitization`) and `preloadSvg` read from and write to - a call using either of those options was never stored there to begin with, so there is nothing for `clearSvgCache`/`hasCachedSvg` to see for it.
+Both only see the same shared cache `<SvgIn src={url} />` (with no `sanitizeFn`/`disableSanitization`/`fetchOptions`) and `preloadSvg` read from and write to - a call using any of those options was never stored there to begin with, so there is nothing for `clearSvgCache`/`hasCachedSvg` to see for it.
 
 ## Entry points
 

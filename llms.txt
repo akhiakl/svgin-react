@@ -99,7 +99,7 @@ hasCachedSvg('https://example.com/icon.svg'); // boolean, no fetch
 clearSvgCache('https://example.com/icon.svg'); // forget one entry
 clearSvgCache(); // forget everything
 ```
-Both only see the shared cache (default-mode `src`/`preloadSvg` calls, no `sanitizeFn`/`disableSanitization`) - the same scope the cache itself is limited to (see Security model below).
+Both only see the shared cache (default-mode `src`/`preloadSvg` calls, no `sanitizeFn`/`disableSanitization`/`fetchOptions`) - the same scope the cache itself is limited to (see Security model below).
 
 ## Props reference
 
