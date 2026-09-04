@@ -18,7 +18,11 @@ async function preloadSvgImpl(
     // result ("") still counts as already preloaded.
     if (usesSharedCache && getCachedSvg(url) !== undefined) return;
 
-    const res = await fetch(url, options?.fetchOptions);
+    // Only pass a second argument to fetch when fetchOptions is actually
+    // given: an explicit `fetch(url, undefined)` changes call arity vs
+    // `fetch(url)`, which can break a fetch wrapper/mock that branches on
+    // arguments.length instead of checking the second argument's value.
+    const res = options?.fetchOptions ? await fetch(url, options.fetchOptions) : await fetch(url);
     if (!res.ok) throw new Error(`Failed to fetch SVG: ${url}`);
     const contentType = res.headers?.get('content-type') ?? '';
     if (contentType && !contentType.includes('svg') && !contentType.includes('xml') && !contentType.includes('octet-stream') && !contentType.includes('text/plain')) {
