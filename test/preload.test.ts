@@ -91,4 +91,27 @@ describe('preloadSvg', () => {
         await preloadSvg('https://example.com/preload-mixed.svg', { disableSanitization: true });
         expect(fetch).toHaveBeenCalledTimes(1); // second stub's count
     });
+
+    it('passes fetchOptions through to fetch and does not store the result in the shared cache', async () => {
+        mockFetchOk('<svg><path/></svg>');
+        const fetchOptions = { headers: { Authorization: 'Bearer token' } };
+        await preloadSvg('https://example.com/preload-auth.svg', { fetchOptions });
+        expect(fetch).toHaveBeenCalledWith('https://example.com/preload-auth.svg', fetchOptions);
+        expect(getCachedSvg('https://example.com/preload-auth.svg')).toBeUndefined();
+    });
+
+    it('does not return a cached result for a fetchOptions call even if the URL was previously preloaded', async () => {
+        mockFetchOk('<svg><path/></svg>');
+        await preloadSvg('https://example.com/preload-mixed2.svg');
+        expect(fetch).toHaveBeenCalledTimes(1);
+
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            text: () => Promise.resolve('<svg><path/></svg>'),
+        }));
+        await preloadSvg('https://example.com/preload-mixed2.svg', {
+            fetchOptions: { headers: { Authorization: 'Bearer token' } },
+        });
+        expect(fetch).toHaveBeenCalledTimes(1); // second stub's count
+    });
 });

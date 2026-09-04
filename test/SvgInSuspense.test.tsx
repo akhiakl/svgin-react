@@ -237,6 +237,33 @@ describe('SvgInSuspense (client component)', () => {
         expect(mockSanitizeString).toHaveBeenCalledTimes(1);
     });
 
+    it('passes fetchOptions through and keys the pinned promise on it', async () => {
+        mockFetch
+            .mockResolvedValueOnce('<svg><circle/></svg>')
+            .mockResolvedValueOnce('<svg><rect/></svg>');
+        const fetchOptions = { headers: { Authorization: 'Bearer token' } };
+
+        await act(async () => {
+            render(
+                <React.Suspense fallback={<span>loading...</span>}>
+                    <SvgInSuspense src="/a.svg" fetchOptions={fetchOptions} />
+                </React.Suspense>
+            );
+        });
+        expect(mockFetch).toHaveBeenCalledWith('/a.svg', expect.objectContaining({ fetchOptions }));
+
+        // Same src, no fetchOptions this time - a distinct cache key, so a
+        // second real fetch happens rather than reusing the first promise.
+        await act(async () => {
+            render(
+                <React.Suspense fallback={<span>loading...</span>}>
+                    <SvgInSuspense src="/a.svg" />
+                </React.Suspense>
+            );
+        });
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
     it('is caught by the nearest error boundary when neither src nor svg is given', async () => {
         let container!: HTMLElement;
         await act(async () => {
