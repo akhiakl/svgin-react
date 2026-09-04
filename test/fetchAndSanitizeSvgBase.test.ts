@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createFetchAndSanitizeSvg } from '../src/utils/fetchAndSanitizeSvgBase';
+import { createFetchAndSanitizeSvg, releaseFetchAndSanitizeSvg } from '../src/utils/fetchAndSanitizeSvgBase';
 import { clearSvgCache } from '../src/utils/svgCache';
 
 function mockFetchOnce(body: string) {
@@ -237,5 +237,85 @@ describe('createFetchAndSanitizeSvg', () => {
         await expect(
             fetchAndSanitizeSvg('https://example.com/icon2.svg')
         ).resolves.toBe('<svg><path/></svg>');
+    });
+
+    describe('releaseFetchAndSanitizeSvg', () => {
+        it('is a no-op when nothing is pending for that url/options', () => {
+            expect(() => releaseFetchAndSanitizeSvg('https://example.com/never-called.svg')).not.toThrow();
+        });
+
+        it('does not abort the underlying fetch while another caller still holds a share of it', async () => {
+            let capturedSignal: AbortSignal | undefined;
+            const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+                capturedSignal = init?.signal ?? undefined;
+                return new Promise(() => {}); // never resolves
+            });
+            vi.stubGlobal('fetch', fetchMock);
+            const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn());
+
+            // Two "callers" acquire a share of the same in-flight request.
+            fetchAndSanitizeSvg('https://example.com/refcount.svg');
+            fetchAndSanitizeSvg('https://example.com/refcount.svg');
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+
+            releaseFetchAndSanitizeSvg('https://example.com/refcount.svg');
+            expect(capturedSignal?.aborted).toBe(false);
+
+            releaseFetchAndSanitizeSvg('https://example.com/refcount.svg');
+            expect(capturedSignal?.aborted).toBe(true);
+        });
+
+        it('aborts immediately when a single caller releases its only share', () => {
+            let capturedSignal: AbortSignal | undefined;
+            const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+                capturedSignal = init?.signal ?? undefined;
+                return new Promise(() => {});
+            });
+            vi.stubGlobal('fetch', fetchMock);
+            const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn());
+
+            fetchAndSanitizeSvg('https://example.com/single.svg');
+            releaseFetchAndSanitizeSvg('https://example.com/single.svg');
+            expect(capturedSignal?.aborted).toBe(true);
+        });
+
+        it('keys release by the same sanitizeFn/disableSanitization as acquire, not just the url', () => {
+            let signalA: AbortSignal | undefined;
+            let signalB: AbortSignal | undefined;
+            let call = 0;
+            const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+                call += 1;
+                if (call === 1) signalA = init?.signal ?? undefined;
+                else signalB = init?.signal ?? undefined;
+                return new Promise(() => {});
+            });
+            vi.stubGlobal('fetch', fetchMock);
+            const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn());
+            const customFn = vi.fn();
+
+            fetchAndSanitizeSvg('https://example.com/keyed.svg');
+            fetchAndSanitizeSvg('https://example.com/keyed.svg', { sanitizeFn: customFn });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+
+            // Releasing the custom-sanitizeFn share must not abort the
+            // unrelated default-mode request for the same url, and vice versa.
+            releaseFetchAndSanitizeSvg('https://example.com/keyed.svg', { sanitizeFn: customFn });
+            expect(signalB?.aborted).toBe(true);
+            expect(signalA?.aborted).toBe(false);
+
+            releaseFetchAndSanitizeSvg('https://example.com/keyed.svg');
+            expect(signalA?.aborted).toBe(true);
+        });
+
+        it('is a no-op once the request has already settled', async () => {
+            mockFetchOnce('<svg>ok</svg>');
+            const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn().mockResolvedValue('<svg>ok</svg>'));
+
+            await fetchAndSanitizeSvg('https://example.com/settled.svg');
+            // The pending entry is torn down once the promise settles, so this
+            // release (arriving after resolution, e.g. a component unmounting
+            // after its data already arrived) must not throw or affect anything.
+            expect(() => releaseFetchAndSanitizeSvg('https://example.com/settled.svg')).not.toThrow();
+        });
     });
 });

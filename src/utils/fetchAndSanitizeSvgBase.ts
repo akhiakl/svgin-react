@@ -1,15 +1,43 @@
 import { getCachedSvg, setCachedSvg } from './svgCache';
-import { setUniversalCache } from './universalCache';
+import { setUniversalCache, stableKey } from './universalCache';
 
 export interface FetchAndSanitizeOptions {
     sanitizeFn?: (svg: string) => Promise<string>;
     disableSanitization?: boolean;
 }
 
+// Short property names deliberately: this is internal-only bookkeeping and
+// every byte here counts toward the bundle-size budget (esbuild's minifier
+// does not shorten object property names, only local variable names).
+// `c` = the AbortController for this in-flight request. `n` = the number of
+// callers currently waiting on it - only the caller that brings this to 0
+// via releaseFetchAndSanitizeSvg actually aborts the underlying request, as
+// long as at least one other caller still needs the result, the fetch keeps
+// running for their sake too.
+interface PendingEntry {
+    c: AbortController;
+    n: number;
+}
+
+// Keyed by the same tuple that identifies a request for caching purposes
+// (see computeKey), so two calls that would share a cached/deduped fetch
+// also share the same cancellation bookkeeping. Shared at module scope
+// across every createFetchAndSanitizeSvg instance (client and server
+// sanitizers both call this factory once each) - keys already fully
+// determine request identity via url+sanitizeFn+disableSanitization, and a
+// client-side call and a server-side call are never in flight in the same
+// JS runtime at once in practice, so sharing this map costs nothing and
+// keeps the cancellation bookkeeping in one place.
+const pendingByKey = new Map<string, PendingEntry>();
+
+function computeKey(url: string, options?: FetchAndSanitizeOptions): string {
+    return stableKey([url, options?.sanitizeFn, options?.disableSanitization]);
+}
+
 export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string | Promise<string>) {
     async function fetchAndSanitizeSvgImpl(
         url: string,
-        options?: FetchAndSanitizeOptions
+        options?: FetchAndSanitizeOptions & { signal?: AbortSignal }
     ): Promise<string> {
         // Only the default sanitizer's output is safe to share across every caller of
         // this URL. `disableSanitization` and custom `sanitizeFn` results are per-call
@@ -26,7 +54,7 @@ export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string |
             if (cached !== undefined) return cached;
         }
 
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: options?.signal });
         if (!res.ok) throw new Error(`Failed to fetch SVG: ${url}`);
         const contentType = res.headers?.get('content-type') ?? '';
         if (contentType && !contentType.includes('svg') && !contentType.includes('xml') && !contentType.includes('octet-stream') && !contentType.includes('text/plain')) {
@@ -47,5 +75,51 @@ export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string |
         }
         return sanitized;
     }
-    return setUniversalCache(fetchAndSanitizeSvgImpl);
+    const dedupedFetch = setUniversalCache(fetchAndSanitizeSvgImpl);
+
+    // Wraps dedupedFetch to add reference-counted cancellation: every call
+    // acquires a share of the in-flight fetch for this key (creating one if
+    // none exists yet), and releaseFetchAndSanitizeSvg below releases it.
+    // The underlying fetch is only actually aborted once every caller that
+    // acquired a share has released it - never on the first release while
+    // others still need the result.
+    function fetchAndSanitizeSvg(url: string, options?: FetchAndSanitizeOptions): Promise<string> {
+        const key = computeKey(url, options);
+        let pending = pendingByKey.get(key);
+        if (!pending) pendingByKey.set(key, (pending = { c: new AbortController(), n: 0 }));
+        pending.n++;
+
+        const promise = dedupedFetch(url, { ...options, signal: pending.c.signal });
+        // Tear down the bookkeeping once the request settles naturally
+        // (resolves or rejects), regardless of remaining refCount - this
+        // covers callers that never call releaseFetchAndSanitizeSvg (the
+        // server component, SvgInSuspense, preloadSvg) so this map never
+        // accumulates stale entries for requests that already finished. The
+        // `pendingByKey.get(key) === pending` check guards against a new
+        // request for the same key having already started (and been stored
+        // under the same key) by the time this one settles.
+        const settle = () => { if (pendingByKey.get(key) === pending) pendingByKey.delete(key); };
+        promise.then(settle, settle);
+        return promise;
+    }
+
+    return fetchAndSanitizeSvg;
+}
+
+/**
+ * Releases one caller's share of the in-flight fetch identified by `url` +
+ * `options` (the same arguments passed to the `fetchAndSanitizeSvg`
+ * returned by createFetchAndSanitizeSvg). Only aborts the underlying fetch
+ * once every caller that acquired a share of it has released - a no-op if
+ * the request already settled, was never started, or other callers still
+ * need it.
+ */
+export function releaseFetchAndSanitizeSvg(url: string, options?: FetchAndSanitizeOptions): void {
+    const key = computeKey(url, options);
+    const pending = pendingByKey.get(key);
+    if (!pending) return;
+    if (--pending.n <= 0) {
+        pending.c.abort();
+        pendingByKey.delete(key);
+    }
 }

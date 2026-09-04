@@ -23,7 +23,13 @@ const DIST = 'dist';
 // aggressively. dompurify/jsdom are external (not bundled) either way, so
 // these numbers reflect this package's own code, not its peer dependencies.
 const BUDGETS_KB_GZIP = {
-    'client.js': 3,
+    // Bumped from 3 to 3.1: the reference-counted abort-in-flight-fetch
+    // feature (releaseFetchAndSanitizeSvg, called on unmount/src change so a
+    // no-longer-needed fetch is actually cancelled instead of left running)
+    // needed a small amount of real code the client bundle already had no
+    // slack for. Property names in the new bookkeeping map are deliberately
+    // single-letter to keep this bump as small as possible.
+    'client.js': 3.1,
     'server.js': 3,
     'core.js': 2,
 };

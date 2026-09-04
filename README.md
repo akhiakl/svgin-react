@@ -196,6 +196,12 @@ Accepts `sanitizeFn`, `disableSanitization`, `fallback`, `loadingFallback`, `cla
 
 Defers the fetch until the rendered placeholder scrolls near the viewport, via `IntersectionObserver` (similar to `<img loading="lazy">`) - useful for icon-heavy lists where most icons are never scrolled into view. Falls back to eager loading in environments without `IntersectionObserver`, and is ignored when `svg` is set (nothing to fetch). Client component only; not applicable to `<SvgInSuspense />` (see above).
 
+### Fetch cancellation
+
+The client `<SvgIn />` cancels its underlying `fetch` when it unmounts, or when `src`/`sanitizeFn`/`disableSanitization` change before the previous fetch resolves - so navigating away from an icon-heavy view, or swapping `src` quickly, doesn't leave abandoned requests running in the background.
+
+Cancellation is reference-counted: if two mounted `<SvgIn />` instances are fetching the same `src` (with the same `sanitizeFn`/`disableSanitization`) at once, unmounting one of them does not cancel the other's still-needed fetch - the request is only actually aborted once every instance that started it has unmounted or moved on. This is transparent; there is nothing to configure. `<SvgInSuspense />`, the server component, and `preloadSvg` don't participate (nothing to cancel from - `<SvgInSuspense />`'s pending promise is meant to be reused by a later render of the same key, an async server component runs to completion once invoked, and `preloadSvg` is deliberately fire-and-forget), but still share the same in-flight-request deduplication described above.
+
 ### `preloadSvg(url, options?)`
 
 Fetches and caches an SVG ahead of time. Accepts the same `sanitizeFn` and `disableSanitization` options as `<SvgIn />`.
