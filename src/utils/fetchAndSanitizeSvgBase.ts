@@ -24,31 +24,6 @@ function computeKey(url: string, options?: FetchAndSanitizeOptions): string {
     return stableKey([url, options?.sanitizeFn, options?.disableSanitization, options?.fetchOptions]);
 }
 
-// AbortSignal.any (Node 20.3+, Safari 17.4+, Firefox 124+) is not available
-// everywhere this library runs - calling it unconditionally would throw and
-// break fetching entirely in an older runtime. Feature-detect and fall back
-// to a manual combiner: a fresh AbortController that aborts as soon as
-// either input signal does. The fallback returns a cleanup function that
-// removes both listeners once the caller is done with the combined signal
-// (the fetch settled, whether by aborting or resolving normally) - `b` in
-// particular can be a long-lived signal a caller reuses across many
-// requests, and never calling cleanup would leave a listener attached to it
-// forever for every request that never itself aborted.
-function combineSignals(a: AbortSignal, b: AbortSignal): { signal: AbortSignal; cleanup?: () => void } {
-    if (typeof AbortSignal.any === 'function') return { signal: AbortSignal.any([a, b]) };
-    if (a.aborted) return { signal: a };
-    if (b.aborted) return { signal: b };
-    const controller = new AbortController();
-    const onAbort = () => controller.abort();
-    a.addEventListener('abort', onAbort);
-    b.addEventListener('abort', onAbort);
-    const cleanup = () => {
-        a.removeEventListener('abort', onAbort);
-        b.removeEventListener('abort', onAbort);
-    };
-    return { signal: controller.signal, cleanup };
-}
-
 export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string | Promise<string>) {
     // Scoped to this createFetchAndSanitizeSvg call, not module scope: the
     // client and server entry points each call this factory once with their
@@ -88,61 +63,53 @@ export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string |
             if (cached !== undefined) return cached;
         }
 
-        // options?.signal is the reference-counted cancellation signal (see
-        // fetchAndSanitizeSvg/releaseFetchAndSanitizeSvg below); a caller
-        // can independently supply their own signal via fetchOptions.signal
-        // (e.g. their own timeout/abort logic). When both are present,
-        // combine them so either one aborts the fetch. Only pass a second
-        // argument to fetch at all when there is actually something to pass
-        // (an init object or a signal): an explicit `fetch(url, undefined)`
-        // changes call arity vs `fetch(url)`, which can break a fetch
-        // wrapper/mock that branches on arguments.length instead of
-        // checking the second argument's value.
-        const callerSignal = options?.fetchOptions?.signal;
-        let signal: AbortSignal | undefined;
-        let cleanupSignal: (() => void) | undefined;
-        if (options?.signal && callerSignal) {
-            const combined = combineSignals(options.signal, callerSignal);
-            signal = combined.signal;
-            cleanupSignal = combined.cleanup;
+        // options.signal is always the reference-counted cancellation signal
+        // (see fetchAndSanitizeSvg/releaseFetchAndSanitizeSvg below) - it's
+        // the only signal ever actually attached to the real fetch. A
+        // caller-supplied fetchOptions.signal is deliberately NOT combined
+        // in here: this call can be a deduped/shared promise serving several
+        // concurrent callers (see computeKey), and only ONE of their
+        // fetchOptions objects is ever the one this specific invocation
+        // actually runs with (the others hit the memoized promise instead
+        // without this function running again) - directly wiring a signal
+        // that belongs to just one of those callers into the shared fetch
+        // would let it unilaterally kill a request other callers still
+        // need, and non-deterministically depend on call order for which
+        // caller's signal "wins". Instead, fetchAndSanitizeSvg below listens
+        // for each caller's own fetchOptions.signal and treats it as that
+        // caller releasing their share - same effect as an unmount - so the
+        // underlying fetch still only ever aborts once every sharer is gone,
+        // regardless of which of them supplied a signal or in what order.
+        // Only pass a second argument to fetch at all when there is
+        // actually something to pass (an init object or a signal): an
+        // explicit `fetch(url, undefined)` changes call arity vs
+        // `fetch(url)`, which can break a fetch wrapper/mock that branches
+        // on arguments.length instead of checking the second argument's value.
+        const signal = options?.signal;
+        const res = options?.fetchOptions
+            ? await fetch(url, { ...options.fetchOptions, signal })
+            : signal
+                ? await fetch(url, { signal })
+                : await fetch(url);
+        if (!res.ok) throw new Error(`Failed to fetch SVG: ${url}`);
+        const contentType = res.headers?.get('content-type') ?? '';
+        if (contentType && !contentType.includes('svg') && !contentType.includes('xml') && !contentType.includes('octet-stream') && !contentType.includes('text/plain')) {
+            throw new Error(`Unexpected content-type for SVG: ${contentType}`);
+        }
+        const raw = await res.text();
+        let sanitized: string;
+        if (options?.disableSanitization) {
+            sanitized = raw;
+        } else if (options?.sanitizeFn) {
+            sanitized = await options.sanitizeFn(raw);
         } else {
-            signal = options?.signal ?? callerSignal ?? undefined;
+            sanitized = await sanitizeSvg(raw);
         }
-        try {
-            const res = options?.fetchOptions
-                ? await fetch(url, { ...options.fetchOptions, signal })
-                : signal
-                    ? await fetch(url, { signal })
-                    : await fetch(url);
-            if (!res.ok) throw new Error(`Failed to fetch SVG: ${url}`);
-            const contentType = res.headers?.get('content-type') ?? '';
-            if (contentType && !contentType.includes('svg') && !contentType.includes('xml') && !contentType.includes('octet-stream') && !contentType.includes('text/plain')) {
-                throw new Error(`Unexpected content-type for SVG: ${contentType}`);
-            }
-            const raw = await res.text();
-            let sanitized: string;
-            if (options?.disableSanitization) {
-                sanitized = raw;
-            } else if (options?.sanitizeFn) {
-                sanitized = await options.sanitizeFn(raw);
-            } else {
-                sanitized = await sanitizeSvg(raw);
-            }
 
-            if (usesSharedCache) {
-                setCachedSvg(url, sanitized);
-            }
-            return sanitized;
-        } finally {
-            // Only set when combineSignals used its manual-combiner fallback
-            // (AbortSignal.any unavailable): removes the 'abort' listeners
-            // it attached to both input signals now that this request is
-            // done with the combined signal, whether it settled normally or
-            // via abort - otherwise a listener would stay attached to a
-            // caller-supplied fetchOptions.signal (which can outlive this
-            // one request, e.g. a signal a caller reuses) indefinitely.
-            cleanupSignal?.();
+        if (usesSharedCache) {
+            setCachedSvg(url, sanitized);
         }
+        return sanitized;
     }
     const dedupedFetch = setUniversalCache(fetchAndSanitizeSvgImpl);
 
@@ -158,6 +125,16 @@ export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string |
         if (!pending) pendingByKey.set(key, (pending = { c: new AbortController(), n: 0 }));
         pending.n++;
 
+        // A caller-supplied fetchOptions.signal firing releases just this
+        // caller's own share (see the comment in fetchAndSanitizeSvgImpl for
+        // why it isn't wired directly into the shared fetch instead).
+        const callerSignal = options?.fetchOptions?.signal;
+        const onCallerAbort = callerSignal ? () => releaseFetchAndSanitizeSvg(url, options) : undefined;
+        if (callerSignal && onCallerAbort) {
+            if (callerSignal.aborted) onCallerAbort();
+            else callerSignal.addEventListener('abort', onCallerAbort, { once: true });
+        }
+
         const promise = dedupedFetch(url, { ...options, signal: pending.c.signal });
         // Tear down the bookkeeping once the request settles naturally
         // (resolves or rejects), regardless of remaining refCount - this
@@ -166,8 +143,13 @@ export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string |
         // accumulates stale entries for requests that already finished. The
         // `pendingByKey.get(key) === pending` check guards against a new
         // request for the same key having already started (and been stored
-        // under the same key) by the time this one settles.
-        const settle = () => { if (pendingByKey.get(key) === pending) pendingByKey.delete(key); };
+        // under the same key) by the time this one settles. Also removes
+        // the caller-signal listener above so it's never left attached to
+        // a signal the caller might keep around/reuse after this settles.
+        const settle = () => {
+            if (pendingByKey.get(key) === pending) pendingByKey.delete(key);
+            if (callerSignal && onCallerAbort) callerSignal.removeEventListener('abort', onCallerAbort);
+        };
         promise.then(settle, settle);
         return promise;
     }

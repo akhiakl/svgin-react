@@ -282,115 +282,103 @@ describe('createFetchAndSanitizeSvg', () => {
         expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
-    it('combines a caller-supplied fetchOptions.signal with the reference-counted cancellation signal', () => {
-        const capturedSignals: (AbortSignal | undefined)[] = [];
+    it('treats a caller-supplied fetchOptions.signal firing as that caller releasing its own share', () => {
+        // Design: a caller's own fetchOptions.signal is never combined
+        // directly into the shared fetch - it's treated as an early
+        // release instead, so the underlying fetch still only aborts once
+        // every sharer of this key is gone (single-caller case here: n
+        // reaches 0 immediately).
+        let capturedSignal: AbortSignal | undefined;
         const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
-            capturedSignals.push(init?.signal ?? undefined);
+            capturedSignal = init?.signal ?? undefined;
             return new Promise(() => {});
         });
         vi.stubGlobal('fetch', fetchMock);
-        const { fetchAndSanitizeSvg, releaseFetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn());
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn());
         const callerController = new AbortController();
 
-        fetchAndSanitizeSvg('https://example.com/combined-signal.svg', {
+        fetchAndSanitizeSvg('https://example.com/caller-signal.svg', {
             fetchOptions: { signal: callerController.signal },
         });
 
-        // Either signal firing must abort the actual fetch: the caller's
-        // own signal, independent of the refcounted one still being open.
-        expect(capturedSignals[0]?.aborted).toBe(false);
+        expect(capturedSignal?.aborted).toBe(false);
         callerController.abort();
-        expect(capturedSignals[0]?.aborted).toBe(true);
-
-        // And the refcounted signal on its own (a fresh request) must still
-        // be able to abort the fetch via releaseFetchAndSanitizeSvg even
-        // when the caller's own signal never fires. A signal has no
-        // enumerable own properties (see stableKey's documented caveat), so
-        // it doesn't need to be the exact same AbortSignal instance to key
-        // to the same pending entry - only the rest of fetchOptions has to
-        // match, which here is nothing else.
-        fetchAndSanitizeSvg('https://example.com/combined-signal-2.svg', {
-            fetchOptions: { signal: new AbortController().signal },
-        });
-        expect(capturedSignals[1]?.aborted).toBe(false);
-        releaseFetchAndSanitizeSvg('https://example.com/combined-signal-2.svg', {
-            fetchOptions: { signal: new AbortController().signal },
-        });
-        expect(capturedSignals[1]?.aborted).toBe(true);
+        expect(capturedSignal?.aborted).toBe(true);
     });
 
-    it('falls back to a manual signal combiner when AbortSignal.any is unavailable', () => {
-        // Regression test for a real bug found in review: calling
-        // AbortSignal.any unconditionally would throw at runtime (breaking
-        // fetching entirely) in an environment without it (Node < 20.3,
-        // Safari < 17.4, Firefox < 124).
-        const originalAny = AbortSignal.any;
-        // @ts-expect-error - simulating an environment without AbortSignal.any
-        delete AbortSignal.any;
-        try {
-            const capturedSignals: (AbortSignal | undefined)[] = [];
-            const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
-                capturedSignals.push(init?.signal ?? undefined);
-                return new Promise(() => {});
-            });
-            vi.stubGlobal('fetch', fetchMock);
-            const { fetchAndSanitizeSvg, releaseFetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn());
-            const callerController = new AbortController();
+    it('releases immediately when the caller-supplied fetchOptions.signal is already aborted', () => {
+        // 'abort' never fires on a signal that was already aborted before a
+        // listener was attached, so this has to be checked explicitly.
+        let capturedSignal: AbortSignal | undefined;
+        const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+            capturedSignal = init?.signal ?? undefined;
+            return new Promise(() => {});
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn());
+        const alreadyAborted = new AbortController();
+        alreadyAborted.abort();
 
-            expect(() =>
-                fetchAndSanitizeSvg('https://example.com/no-abortsignal-any.svg', {
-                    fetchOptions: { signal: callerController.signal },
-                })
-            ).not.toThrow();
+        fetchAndSanitizeSvg('https://example.com/pre-aborted.svg', {
+            fetchOptions: { signal: alreadyAborted.signal },
+        });
 
-            // Both the caller's own signal and the refcounted one must still
-            // be able to abort the fetch via the fallback combiner.
-            expect(capturedSignals[0]?.aborted).toBe(false);
-            callerController.abort();
-            expect(capturedSignals[0]?.aborted).toBe(true);
-
-            fetchAndSanitizeSvg('https://example.com/no-abortsignal-any-2.svg', {
-                fetchOptions: { signal: new AbortController().signal },
-            });
-            expect(capturedSignals[1]?.aborted).toBe(false);
-            releaseFetchAndSanitizeSvg('https://example.com/no-abortsignal-any-2.svg', {
-                fetchOptions: { signal: new AbortController().signal },
-            });
-            expect(capturedSignals[1]?.aborted).toBe(true);
-        } finally {
-            AbortSignal.any = originalAny;
-        }
+        expect(capturedSignal?.aborted).toBe(true);
     });
 
-    it('removes the fallback combiner\'s abort listeners once the request settles normally', async () => {
-        // Regression test for a real bug found in review: the fallback
-        // combiner (used when AbortSignal.any is unavailable) attached
-        // 'abort' listeners to both input signals but never removed them
-        // when the request settled without either signal ever aborting -
-        // a caller-supplied fetchOptions.signal can be long-lived/reused
-        // across many requests, so this would leak one listener per request
-        // for as long as that signal lives.
-        const originalAny = AbortSignal.any;
-        // @ts-expect-error - simulating an environment without AbortSignal.any
-        delete AbortSignal.any;
-        try {
-            mockFetchOnce('<svg>ok</svg>');
-            const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn().mockResolvedValue('<svg>ok</svg>'));
-            const callerController = new AbortController();
-            const removeSpy = vi.spyOn(AbortSignal.prototype, 'removeEventListener');
+    it('does not let one concurrent caller\'s own signal abort a fetch another concurrent caller still needs', () => {
+        // Regression test for a real bug found in review: two concurrent
+        // callers sharing the same in-flight request (same url and
+        // otherwise-identical fetchOptions - a signal has no enumerable own
+        // properties, see stableKey's documented caveat, so it doesn't
+        // affect the dedup key) can each supply their own distinct
+        // fetchOptions.signal. Combining only the *first* caller's signal
+        // directly into the shared fetch would make a later caller's own
+        // signal silently do nothing (order-dependent) - or, if combined
+        // too, would let any one caller unilaterally kill a fetch the other
+        // still needs. Both must instead only release that caller's own
+        // share: the underlying fetch keeps running until BOTH release.
+        let capturedSignal: AbortSignal | undefined;
+        const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+            capturedSignal = init?.signal ?? undefined;
+            return new Promise(() => {});
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn());
+        const controllerA = new AbortController();
+        const controllerB = new AbortController();
 
-            await fetchAndSanitizeSvg('https://example.com/cleanup.svg', {
-                fetchOptions: { signal: callerController.signal },
-            });
+        fetchAndSanitizeSvg('https://example.com/shared-signal.svg', { fetchOptions: { signal: controllerA.signal } });
+        fetchAndSanitizeSvg('https://example.com/shared-signal.svg', { fetchOptions: { signal: controllerB.signal } });
 
-            // One removeEventListener('abort', ...) call for the refcounted
-            // signal and one for the caller's signal - both listeners torn
-            // down even though neither ever fired.
-            const abortRemovals = removeSpy.mock.calls.filter(([event]) => event === 'abort');
-            expect(abortRemovals.length).toBe(2);
-        } finally {
-            AbortSignal.any = originalAny;
-        }
+        // B still needs it - A's own signal firing must not abort the fetch.
+        controllerA.abort();
+        expect(capturedSignal?.aborted).toBe(false);
+
+        // Now both have released - only now is the fetch actually aborted.
+        controllerB.abort();
+        expect(capturedSignal?.aborted).toBe(true);
+    });
+
+    it('removes the caller-signal listener once the request settles normally', async () => {
+        // Regression test for a real bug found in review: the earlier
+        // signal-combining approach could leave an 'abort' listener
+        // attached to a caller-supplied fetchOptions.signal indefinitely if
+        // the request settled without it ever firing - a real leak risk
+        // since such a signal can be long-lived/reused across many
+        // requests. The current design (release-on-abort, not combine)
+        // must clean up the same way.
+        mockFetchOnce('<svg>ok</svg>');
+        const { fetchAndSanitizeSvg } = createFetchAndSanitizeSvg(vi.fn().mockResolvedValue('<svg>ok</svg>'));
+        const callerController = new AbortController();
+        const removeSpy = vi.spyOn(AbortSignal.prototype, 'removeEventListener');
+
+        await fetchAndSanitizeSvg('https://example.com/cleanup.svg', {
+            fetchOptions: { signal: callerController.signal },
+        });
+
+        const abortRemovals = removeSpy.mock.calls.filter(([event]) => event === 'abort');
+        expect(abortRemovals.length).toBe(1);
     });
 
     it('accepts a response with no Content-Type header (headers absent)', async () => {

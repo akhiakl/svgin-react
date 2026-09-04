@@ -205,6 +205,8 @@ The client `<SvgIn />` cancels its underlying `fetch` when it unmounts, or when 
 
 Cancellation is reference-counted: if two mounted `<SvgIn />` instances are fetching the same `src` (with the same `sanitizeFn`/`disableSanitization`/`fetchOptions`) at once, unmounting one of them does not cancel the other's still-needed fetch - the request is only actually aborted once every instance that started it has unmounted or moved on. This is transparent; there is nothing to configure. `<SvgInSuspense />`, the server component, and `preloadSvg` don't participate (nothing to cancel from - `<SvgInSuspense />`'s pending promise is meant to be reused by a later render of the same key, an async server component runs to completion once invoked, and `preloadSvg` is deliberately fire-and-forget), but still share the same in-flight-request deduplication described above.
 
+If you also pass your own `signal` inside `fetchOptions` (your own timeout logic, say), firing it has the same effect as that specific caller unmounting: it releases only that caller's share, so it can never abort a fetch another concurrent caller with an identical `src`/`sanitizeFn`/`disableSanitization`/`fetchOptions` still needs. The underlying request is only ever actually aborted once every such caller - including ones using their own `signal` - has released.
+
 ### `preloadSvg(url, options?)`
 
 Fetches and caches an SVG ahead of time. Accepts the same `sanitizeFn`, `disableSanitization`, and `fetchOptions` options as `<SvgIn />`.

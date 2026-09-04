@@ -23,7 +23,7 @@ const DIST = 'dist';
 // aggressively. dompurify/jsdom are external (not bundled) either way, so
 // these numbers reflect this package's own code, not its peer dependencies.
 const BUDGETS_KB_GZIP = {
-    // Bumped from 3 to 3.4: the reference-counted abort-in-flight-fetch
+    // Bumped from 3 to 3.28: the reference-counted abort-in-flight-fetch
     // feature (releaseFetchAndSanitizeSvg, called on unmount/src change so a
     // no-longer-needed fetch is actually cancelled instead of left running)
     // needed a small amount of real code the client bundle already had no
@@ -31,18 +31,19 @@ const BUDGETS_KB_GZIP = {
     // single-letter to keep this bump as small as possible. The 3.1 -> 3.15
     // step was a review fix that scopes the pending-request map per
     // createFetchAndSanitizeSvg instance instead of sharing one at module
-    // scope. The 3.15 -> 3.22 step is from combining the refcounted
-    // cancellation signal with a caller-supplied fetchOptions.signal (via
-    // AbortSignal.any) once this feature was rebased onto the fetchOptions
-    // feature (PR #51) - either signal must be able to abort the fetch. The
-    // 3.22 -> 3.3 step is a review fix that feature-detects AbortSignal.any
-    // (Node < 20.3/Safari < 17.4/Firefox < 124 lack it) and falls back to a
-    // manual AbortController-based combiner instead of throwing at runtime.
-    // The 3.3 -> 3.4 step is a review fix that removes the fallback
-    // combiner's 'abort' listeners once a request settles, instead of
-    // leaking one per request on a caller-supplied, potentially long-lived
-    // fetchOptions.signal that's reused across many requests.
-    'client.js': 3.4,
+    // scope. Earlier revisions of this feature combined a caller-supplied
+    // fetchOptions.signal directly into the shared fetch (via
+    // AbortSignal.any, plus a manual fallback for runtimes without it),
+    // which needed more code and turned out to be the wrong design anyway -
+    // it only ever wired in the *first* concurrent caller's signal for a
+    // deduped/shared request, silently ignoring every other caller's own
+    // signal (found in review). The final design instead treats a caller's
+    // own fetchOptions.signal firing as that caller releasing its share
+    // (same effect as an unmount, handled by the existing refcounting),
+    // which fixed the bug, removed the need for signal-combining code
+    // entirely, and left the client bundle smaller than the 3.3/3.4 KB
+    // intermediate bumps this comment used to describe.
+    'client.js': 3.28,
     'server.js': 3,
     'core.js': 2,
 };
