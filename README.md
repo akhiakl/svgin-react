@@ -247,6 +247,15 @@ Import from a specific entry point to keep your bundle small:
 - Published bundles carry [npm provenance](https://docs.npmjs.com/generating-provenance-statements) attestations, so you can verify a release was built from this exact repository by GitHub Actions, not published from someone's laptop.
 - See [SECURITY.md](SECURITY.md) for how to report a vulnerability.
 
+## Known limitations
+
+**An inline `<style>` block inside a source SVG is not scoped to that SVG.** svgin-react renders the sanitized SVG as real DOM content (via `dangerouslySetInnerHTML`), not inside a shadow root or an `<iframe>`. If the SVG contains a `<style>` element, the rules it defines behave like any other `<style>` tag inserted into the page: they apply globally, not just to that one `<svg>`. Two consequences:
+
+- A class or id selector in that `<style>` block (e.g. `.icon-fill { fill: red; }`) can match same-named elements anywhere else on the page, not only inside the SVG it came from.
+- [`uniquifyIds`](src/utils/svgUtils.ts) (the automatic id-collision handling mentioned above) only rewrites `id="..."` attributes inside the SVG's *inner* markup (its child elements - it's never applied to the outer `<svg>` element itself, which React renders and only forwards source attributes onto) and references to those ids via `url(#id)`, `href="#id"`, or `xlink:href="#id"` - it does not rewrite CSS selectors inside a `<style>` block. For example, a `<style>#gradient-a { stop-color: red; }</style>` rule targeting an inner `<stop id="gradient-a">` by id: `uniquifyIds` suffixes the `id` attribute on that inner `<stop>` element (turning it into e.g. `gradient-a-svgin3`), but the `#gradient-a` selector inside `<style>` is left as-is, so it keeps targeting the *original*, now-nonexistent id - the rule silently stops matching anything. (The outer `<svg>` element's own `id`, if the source SVG had one, is never touched by `uniquifyIds` either way - see above - so a selector targeting that one specifically isn't affected by this.)
+
+If a source SVG uses `<style>` with id/class selectors and you control that source, prefer moving those rules to `fill`/`stroke`/etc. presentation attributes instead (which `uniquifyIds` and normal React styling both handle correctly), or scope the selectors defensively (e.g. a class name unlikely to collide) if you can't avoid `<style>` entirely. There is no prop to auto-scope or strip `<style>` blocks - sanitization removes genuinely unsafe content (`<script>`, event handler attributes, etc.) but intentionally leaves well-formed `<style>` rules in place, since removing them outright would silently break SVGs that rely on them for legitimate styling.
+
 ## Examples
 
 Custom sanitizer:
