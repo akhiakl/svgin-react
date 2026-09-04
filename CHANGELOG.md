@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/). [release-please](https://github.com/googleapis/release-please) generates entries here automatically from Conventional Commits on every release - do not hand-edit below this point.
 
+## [0.9.2](https://github.com/akhiakl/svgin-react/compare/v0.9.1...v0.9.2) (2026-09-02)
+
+
+### Documentation
+
+* link the live demo site in the README ([6d8ab9c](https://github.com/akhiakl/svgin-react/commit/6d8ab9cc2670f5d8b0b1b83c117ec2ee219e2750), [31cb803](https://github.com/akhiakl/svgin-react/commit/31cb80377a8a9397bb9886d8529df552cfe64483))
+
 ## [0.9.1](https://github.com/akhiakl/svgin-react/compare/v0.9.0...v0.9.1) (2026-09-01)
 
 
