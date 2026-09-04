@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/utils/fetchAndSanitizeSvgClient', () => ({
     fetchAndSanitizeSvg: vi.fn(),
+    releaseFetchAndSanitizeSvg: vi.fn(),
 }));
 vi.mock('../src/utils/sanitizeSvgStringClient', () => ({
     sanitizeSvgString: vi.fn(),
@@ -10,10 +11,11 @@ vi.mock('../src/utils/sanitizeSvgStringClient', () => ({
 
 import { SvgIn } from '../src/SvgIn.client';
 import { SvgInProvider } from '../src/SvgInProvider';
-import { fetchAndSanitizeSvg } from '../src/utils/fetchAndSanitizeSvgClient';
+import { fetchAndSanitizeSvg, releaseFetchAndSanitizeSvg } from '../src/utils/fetchAndSanitizeSvgClient';
 import { sanitizeSvgString } from '../src/utils/sanitizeSvgStringClient';
 
 const mockFetch = vi.mocked(fetchAndSanitizeSvg);
+const mockRelease = vi.mocked(releaseFetchAndSanitizeSvg);
 const mockSanitizeString = vi.mocked(sanitizeSvgString);
 
 describe('SvgIn (client component)', () => {
@@ -166,6 +168,58 @@ describe('SvgIn (client component)', () => {
         // Resolving after unmount must not throw (state update on unmounted component).
         expect(() => resolve('<svg><path/></svg>')).not.toThrow();
         await new Promise(r => setTimeout(r, 20));
+    });
+
+    it('releases the fetch on unmount with the same src/sanitizeFn/disableSanitization it was acquired with', async () => {
+        mockFetch.mockReturnValue(new Promise(() => {})); // never resolves
+        const customFn = vi.fn();
+
+        const { unmount } = render(
+            <SvgIn src="/slow.svg" sanitizeFn={customFn} disableSanitization={false} />
+        );
+        expect(mockRelease).not.toHaveBeenCalled();
+
+        unmount();
+        expect(mockRelease).toHaveBeenCalledTimes(1);
+        expect(mockRelease).toHaveBeenCalledWith(
+            '/slow.svg',
+            expect.objectContaining({ sanitizeFn: customFn, disableSanitization: false })
+        );
+    });
+
+    it('releases the previous fetch when src changes, before acquiring the new one', async () => {
+        mockFetch
+            .mockReturnValueOnce(new Promise(() => {}))
+            .mockReturnValueOnce(new Promise(() => {}));
+
+        const { rerender } = render(<SvgIn src="/a.svg" />);
+        expect(mockRelease).not.toHaveBeenCalled();
+
+        rerender(<SvgIn src="/b.svg" />);
+        expect(mockRelease).toHaveBeenCalledTimes(1);
+        expect(mockRelease).toHaveBeenCalledWith('/a.svg', expect.anything());
+        expect(mockFetch).toHaveBeenNthCalledWith(2, '/b.svg', expect.anything());
+    });
+
+    it('does not call release when there is no src (svg prop path)', async () => {
+        mockSanitizeString.mockReturnValue(new Promise(() => {}));
+        const { unmount } = render(<SvgIn svg="<svg><path/></svg>" />);
+        unmount();
+        expect(mockRelease).not.toHaveBeenCalled();
+    });
+
+    it('does not call release when both svg and src are given (svg takes precedence, fetchAndSanitizeSvg is never called)', async () => {
+        // Regression test for a real bug found in review: `svg` takes
+        // precedence over `src` (see resolveSvgPromise), so this instance
+        // never acquires a share of any in-flight fetch for `src`.
+        // Releasing anyway on unmount would decrement (and potentially
+        // abort) an unrelated fetch some other mounted <SvgIn src={...} />
+        // instance is still relying on.
+        mockSanitizeString.mockReturnValue(new Promise(() => {}));
+        const { unmount } = render(<SvgIn svg="<svg><path/></svg>" src="/a.svg" />);
+        expect(mockFetch).not.toHaveBeenCalled();
+        unmount();
+        expect(mockRelease).not.toHaveBeenCalled();
     });
 
     it('passes sanitizeFn and disableSanitization through to fetchAndSanitizeSvg', async () => {

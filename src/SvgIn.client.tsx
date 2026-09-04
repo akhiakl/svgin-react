@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import type { SvgInProps } from './types';
-import { fetchAndSanitizeSvg } from './utils/fetchAndSanitizeSvgClient';
+import { fetchAndSanitizeSvg, releaseFetchAndSanitizeSvg } from './utils/fetchAndSanitizeSvgClient';
 import { sanitizeSvgString } from './utils/sanitizeSvgStringClient';
 import { SvgInComponent } from './SvgInComponent';
 import { nextInstanceId } from './utils/instanceId';
@@ -139,10 +139,33 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
         let mounted = true;
         setSvg(null);
         setError(null);
-        resolveSvgPromise(src, svgProp, sanitizeFnRef.current, disableSanitization, fetchOptionsRef.current)
+        const currentSanitizeFn = sanitizeFnRef.current;
+        const currentFetchOptions = fetchOptionsRef.current;
+        resolveSvgPromise(src, svgProp, currentSanitizeFn, disableSanitization, currentFetchOptions)
             .then((sanitized) => { if (mounted) setSvg(sanitized); })
             .catch((e) => { if (mounted) { setError(e); onErrorRef.current?.(e); } });
-        return () => { mounted = false; };
+        return () => {
+            mounted = false;
+            // Release this caller's share of the in-flight fetch - but only
+            // when resolveSvgPromise actually acquired one. `svg` takes
+            // precedence over `src` (see resolveSvgPromise/SvgInProps), so
+            // when both are given this instance never called
+            // fetchAndSanitizeSvg for `src` at all; releasing it anyway
+            // would decrement (and potentially abort) an unrelated in-flight
+            // fetch some other mounted instance is still relying on. The
+            // underlying fetch is only actually aborted once every other
+            // mounted <SvgIn /> instance sharing the same in-flight request
+            // (same src/sanitizeFn/disableSanitization/fetchOptions) has
+            // also unmounted or moved on to different props - see
+            // releaseFetchAndSanitizeSvg.
+            if (svgProp === undefined && src !== undefined) {
+                releaseFetchAndSanitizeSvg(src, {
+                    sanitizeFn: currentSanitizeFn,
+                    disableSanitization,
+                    fetchOptions: currentFetchOptions,
+                });
+            }
+        };
     }, [shouldLoad, src, svgProp, disableSanitization, hasSanitizeFn, hasFetchOptions]);
 
     // Fires after the rendered <svg> DOM node is available (or updated) -

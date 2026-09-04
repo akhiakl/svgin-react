@@ -23,7 +23,27 @@ const DIST = 'dist';
 // aggressively. dompurify/jsdom are external (not bundled) either way, so
 // these numbers reflect this package's own code, not its peer dependencies.
 const BUDGETS_KB_GZIP = {
-    'client.js': 3,
+    // Bumped from 3 to 3.28: the reference-counted abort-in-flight-fetch
+    // feature (releaseFetchAndSanitizeSvg, called on unmount/src change so a
+    // no-longer-needed fetch is actually cancelled instead of left running)
+    // needed a small amount of real code the client bundle already had no
+    // slack for. Property names in the new bookkeeping map are deliberately
+    // single-letter to keep this bump as small as possible. The 3.1 -> 3.15
+    // step was a review fix that scopes the pending-request map per
+    // createFetchAndSanitizeSvg instance instead of sharing one at module
+    // scope. Earlier revisions of this feature combined a caller-supplied
+    // fetchOptions.signal directly into the shared fetch (via
+    // AbortSignal.any, plus a manual fallback for runtimes without it),
+    // which needed more code and turned out to be the wrong design anyway -
+    // it only ever wired in the *first* concurrent caller's signal for a
+    // deduped/shared request, silently ignoring every other caller's own
+    // signal (found in review). The final design instead treats a caller's
+    // own fetchOptions.signal firing as that caller releasing its share
+    // (same effect as an unmount, handled by the existing refcounting),
+    // which fixed the bug, removed the need for signal-combining code
+    // entirely, and left the client bundle smaller than the 3.3/3.4 KB
+    // intermediate bumps this comment used to describe.
+    'client.js': 3.28,
     'server.js': 3,
     'core.js': 2,
 };

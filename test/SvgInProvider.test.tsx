@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/utils/fetchAndSanitizeSvgClient', () => ({
     fetchAndSanitizeSvg: vi.fn(),
+    releaseFetchAndSanitizeSvg: vi.fn(),
 }));
 
 import { SvgIn } from '../src/SvgIn.client';
