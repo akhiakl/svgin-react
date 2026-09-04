@@ -15,7 +15,14 @@ import type { SvgInProps } from './types';
 // module again. It intentionally does not consult <SvgInProvider>.
 export type SvgInDefaults = Pick<
     SvgInProps,
-    'sanitizeFn' | 'disableSanitization' | 'fallback' | 'loadingFallback' | 'className' | 'onError' | 'loading'
+    | 'sanitizeFn'
+    | 'disableSanitization'
+    | 'fetchOptions'
+    | 'fallback'
+    | 'loadingFallback'
+    | 'className'
+    | 'onError'
+    | 'loading'
 >;
 
 export const SvgInContext = createContext<SvgInDefaults>({});

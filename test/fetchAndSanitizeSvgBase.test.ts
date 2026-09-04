@@ -225,6 +225,58 @@ describe('createFetchAndSanitizeSvg', () => {
         expect(defaultSanitize).toHaveBeenCalledTimes(1);
     });
 
+    it('passes fetchOptions through as the second argument to fetch', async () => {
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValue({ ok: true, text: () => Promise.resolve('<svg>raw</svg>') });
+        vi.stubGlobal('fetch', fetchMock);
+        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn().mockResolvedValue('<svg>clean</svg>'));
+
+        const fetchOptions = { headers: { Authorization: 'Bearer token' }, credentials: 'include' as const };
+        await fetchAndSanitizeSvg('https://example.com/auth.svg', { fetchOptions });
+
+        expect(fetchMock).toHaveBeenCalledWith('https://example.com/auth.svg', fetchOptions);
+    });
+
+    it('does not poison the shared cache with a fetchOptions result, and does not read from it either', async () => {
+        const defaultSanitize = vi.fn().mockResolvedValue('<svg>anonymous-clean</svg>');
+        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(defaultSanitize);
+
+        // An authenticated call for this URL happens first, returning
+        // content that must not leak into the shared cache.
+        mockFetchOnce('<svg>private content</svg>');
+        const authed = await fetchAndSanitizeSvg('https://example.com/personalized.svg', {
+            fetchOptions: { headers: { Authorization: 'Bearer secret' } },
+        });
+        expect(authed).toBe('<svg>anonymous-clean</svg>');
+
+        // A later default (no fetchOptions) call for the same URL must still
+        // fetch and sanitize fresh, not reuse the authenticated response.
+        mockFetchOnce('<svg>public content</svg>');
+        const anonymous = await fetchAndSanitizeSvg('https://example.com/personalized.svg');
+        expect(anonymous).toBe('<svg>anonymous-clean</svg>');
+        expect(defaultSanitize).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not collide two different fetchOptions values for the same URL on the outer memoization layer', async () => {
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValue({ ok: true, text: () => Promise.resolve('<svg>raw</svg>') });
+        vi.stubGlobal('fetch', fetchMock);
+        const fetchAndSanitizeSvg = createFetchAndSanitizeSvg(vi.fn().mockResolvedValue('<svg>clean</svg>'));
+
+        await fetchAndSanitizeSvg('https://example.com/multi-user.svg', {
+            fetchOptions: { headers: { Authorization: 'Bearer alice' } },
+        });
+        await fetchAndSanitizeSvg('https://example.com/multi-user.svg', {
+            fetchOptions: { headers: { Authorization: 'Bearer bob' } },
+        });
+
+        // Two distinct plain-object fetchOptions must not be treated as the
+        // same call - each is a real, separate fetch.
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
     it('accepts a response with no Content-Type header (headers absent)', async () => {
         // Many test/mock environments omit the headers object entirely.
         // The check must be a no-op when content-type is absent.

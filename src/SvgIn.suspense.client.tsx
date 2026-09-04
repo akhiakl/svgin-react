@@ -67,7 +67,8 @@ function resolvePromise(
     src: string | undefined,
     svgProp: string | undefined,
     sanitizeFn: ((svg: string) => Promise<string>) | undefined,
-    disableSanitization: boolean | undefined
+    disableSanitization: boolean | undefined,
+    fetchOptions: RequestInit | undefined
 ): Promise<string> {
     if (svgProp === undefined && src === undefined) {
         // A plain synchronous throw, not a rejected Promise: use() requires a
@@ -93,13 +94,13 @@ function resolvePromise(
     const key =
         svgProp !== undefined
             ? stableKey([svgProp, sanitizeFn, disableSanitization])
-            : stableKey([src, sanitizeFn, disableSanitization]);
+            : stableKey([src, sanitizeFn, disableSanitization, fetchOptions]);
     let promise = suspensePromises.get(key);
     if (promise === undefined) {
         promise =
             svgProp !== undefined
                 ? sanitizeSvgString(svgProp, { sanitizeFn, disableSanitization })
-                : fetchAndSanitizeSvg(src as string, { sanitizeFn, disableSanitization });
+                : fetchAndSanitizeSvg(src as string, { sanitizeFn, disableSanitization, fetchOptions });
         suspensePromises.set(key, promise);
     }
     return promise;
@@ -110,8 +111,9 @@ function resolvePromise(
  * state: pending renders throw the cached promise (caught by the nearest
  * <Suspense>), a rejection throws the reason (caught by the nearest error
  * boundary). resolvePromise pins one promise per (src, svg, sanitizeFn,
- * disableSanitization) key - see its own comment for why this can't just
- * delegate to fetchAndSanitizeSvg/sanitizeSvgString's own memoization.
+ * disableSanitization, fetchOptions) key - see its own comment for why this
+ * can't just delegate to fetchAndSanitizeSvg/sanitizeSvgString's own
+ * memoization.
  *
  * A standalone component rather than a `suspense` prop on <SvgIn />
  * on purpose: keeping it out of <SvgIn />'s own code path means a consumer
@@ -129,15 +131,25 @@ function resolvePromise(
 export const SvgInSuspense: React.FC<Omit<SvgInProps, 'fallback' | 'loadingFallback' | 'loading' | 'suspense'>> = (
     props
 ) => {
-    const { src, svg: svgProp, sanitizeFn, disableSanitization, title, description, onError, onMount, ...rest } =
-        props;
+    const {
+        src,
+        svg: svgProp,
+        sanitizeFn,
+        disableSanitization,
+        fetchOptions,
+        title,
+        description,
+        onError,
+        onMount,
+        ...rest
+    } = props;
     const idSuffix = useRef<string | undefined>(undefined);
     if (idSuffix.current === undefined) idSuffix.current = nextInstanceId();
     const svgRef = useRef<SVGSVGElement>(null);
     const onMountRef = useRef(onMount);
     onMountRef.current = onMount;
 
-    const promise = resolvePromise(src, svgProp, sanitizeFn, disableSanitization);
+    const promise = resolvePromise(src, svgProp, sanitizeFn, disableSanitization, fetchOptions);
     // A side-channel notification only: subscribing a .catch() handler does
     // not change what use() itself sees or throws below, so onError can fire
     // without interfering with Suspense/error-boundary behavior. Deduped by

@@ -51,6 +51,13 @@ describe('SvgIn (server component)', () => {
         );
     });
 
+    it('passes fetchOptions to fetchAndSanitizeSvg', async () => {
+        mockFetch.mockResolvedValue('<svg><path/></svg>');
+        const fetchOptions = { headers: { Authorization: 'Bearer token' } };
+        await SvgIn({ src: '/a.svg', fetchOptions });
+        expect(mockFetch).toHaveBeenCalledWith('/a.svg', expect.objectContaining({ fetchOptions }));
+    });
+
     it('renders a <title>/<desc> from the title/description props', async () => {
         mockFetch.mockResolvedValue('<svg><path/></svg>');
         const element = await SvgIn({ src: '/a.svg', title: 'Alert icon', description: 'Warns the user' });
