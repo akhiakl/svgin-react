@@ -89,7 +89,10 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
     // a refetch with new header values).
     const fetchOptionsRef = useRef(fetchOptions);
     fetchOptionsRef.current = fetchOptions;
-    const hasFetchOptions = fetchOptions !== undefined;
+    // fetchOptions only affects anything on the `src` (fetch) path - when
+    // `svg` is given instead, resolveSvgPromise never reaches fetchOptions
+    // at all, so its presence toggling must not trigger a re-sanitize there.
+    const hasFetchOptions = svgProp === undefined && fetchOptions !== undefined;
 
     // Lazy loading: don't start the fetch until the placeholder scrolls near
     // the viewport. Only applies when the *default* placeholder actually

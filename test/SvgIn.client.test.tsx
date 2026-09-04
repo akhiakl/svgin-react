@@ -112,6 +112,21 @@ describe('SvgIn (client component)', () => {
         expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
+    it('does not re-sanitize when fetchOptions toggles while using the svg prop (fetchOptions is irrelevant there)', async () => {
+        // Regression test: fetchOptions only affects the src (fetch) path -
+        // when svg is given, resolveSvgPromise never reaches fetchOptions at
+        // all, so its presence toggling must not trigger a re-sanitize.
+        mockSanitizeString.mockResolvedValue('<svg><path/></svg>');
+
+        const { rerender } = render(<SvgIn svg="<svg><path/></svg>" />);
+        await waitFor(() => expect(mockSanitizeString).toHaveBeenCalledTimes(1));
+
+        rerender(<SvgIn svg="<svg><path/></svg>" fetchOptions={{ headers: { A: '1' } }} />);
+        await new Promise(r => setTimeout(r, 50));
+        expect(mockSanitizeString).toHaveBeenCalledTimes(1);
+        expect(mockFetch).not.toHaveBeenCalled();
+    });
+
     it('does not re-fetch when only unrelated props (width, fill) change', async () => {
         mockFetch.mockResolvedValue('<svg><path/></svg>');
 
