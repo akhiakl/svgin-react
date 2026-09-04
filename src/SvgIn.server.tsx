@@ -11,13 +11,13 @@ export async function SvgIn(props: SvgInProps) {
     // ready), and this async server component is already Suspense-friendly
     // on its own - a parent can wrap its usage in <Suspense> for free. All
     // three are client-only, documented on their own prop in types.ts.
-    const { src, svg: svgProp, sanitizeFn, disableSanitization, onError, ...rest } = props;
+    const { src, svg: svgProp, sanitizeFn, disableSanitization, fetchOptions, onError, ...rest } = props;
     try {
         let svg: string;
         if (svgProp !== undefined) {
             svg = await sanitizeSvgString(svgProp, { sanitizeFn, disableSanitization });
         } else if (src !== undefined) {
-            svg = await fetchAndSanitizeSvg(src, { sanitizeFn, disableSanitization });
+            svg = await fetchAndSanitizeSvg(src, { sanitizeFn, disableSanitization, fetchOptions });
         } else {
             throw new Error('<SvgIn /> requires either `src` or `svg`.');
         }

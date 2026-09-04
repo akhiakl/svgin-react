@@ -19,7 +19,7 @@ svgin-react solves one specific problem: you have an SVG at a URL (not bundled i
 - `title` and `description` props inject accessible `<title>`/`<desc>` elements into the rendered SVG, and wire `aria-labelledby`/`aria-describedby` to them automatically.
 - `onError` fires with the actual `Error` when a fetch or sanitization fails. `onMount` (client component only) fires with the rendered `SVGSVGElement` right after it mounts or updates.
 - A `svg` prop accepts raw SVG markup you already have (a CMS field, an API response) - sanitized and rendered directly, skipping the fetch. Takes precedence over `src` if both are given.
-- `<SvgInProvider>` (client, from `svgin-react/client`) sets shared defaults (`sanitizeFn`, `disableSanitization`, `fallback`, `loadingFallback`, `className`, `onError`, `loading`) for every `<SvgIn />` beneath it; an explicit prop on a given `<SvgIn />` always overrides the provider default.
+- `<SvgInProvider>` (client, from `svgin-react/client`) sets shared defaults (`sanitizeFn`, `disableSanitization`, `fetchOptions`, `fallback`, `loadingFallback`, `className`, `onError`, `loading`) for every `<SvgIn />` beneath it; an explicit prop on a given `<SvgIn />` always overrides the provider default.
 - `<SvgInSuspense>` (client, from `svgin-react/client`) is a separate component, not a prop on `<SvgIn />`, that suspends via React 19's `use()` instead of managing its own loading/error state - pair with a `<Suspense>` boundary and an error boundary. It's a separate export specifically so a bundler can tree-shake it out entirely for consumers who never import it (a boolean prop on the shared `<SvgIn />` could never be removed that way, since the branch stays reachable from code every consumer uses). The server component needs no equivalent - it's already Suspense-friendly on its own (a plain async component).
 - `loading="lazy"` (client component only) defers the fetch until the placeholder scrolls near the viewport, via `IntersectionObserver`.
 - `loadingFallback` (client component only) renders custom UI while the fetch/sanitize is pending, instead of the default `aria-hidden` placeholder `<svg>`.
@@ -116,13 +116,14 @@ Both only see the shared cache (default-mode `src`/`preloadSvg` calls, no `sanit
 | `fallback` | `ReactNode` | — | Rendered when fetch or sanitization fails. |
 | `sanitizeFn` | `(svg: string) => Promise<string>` | — | Custom sanitizer; replaces the default DOMPurify sanitizer. |
 | `disableSanitization` | `boolean` | — | Skip sanitization. Only for fully trusted SVG sources. |
+| `fetchOptions` | `RequestInit` | — | Second argument to `fetch` for `src` (headers, credentials, etc). Ignored when `svg` is given. Never shares the module-level cache (see Security model). |
 | `onError` | `(error: Error) => void` | — | Called when the fetch or sanitization fails, alongside `fallback`. |
 | `onMount` | `(svg: SVGSVGElement) => void` | — | Client component only. Called with the rendered `<svg>` element after mount/update. |
 | `svg` | `string` | — | Raw SVG markup to sanitize+render directly, skipping the fetch. Takes precedence over `src`. |
 | `loadingFallback` | `ReactNode` | — | Client component only. Rendered while pending, instead of the default placeholder. |
 | `loading` | `'eager' \| 'lazy'` | — | Client component only. `'lazy'` defers the fetch until near the viewport. |
 
-`<SvgIn />` has no `suspense` prop - use the separate `<SvgInSuspense />` component instead (same `src`/`svg`/`sanitizeFn`/`disableSanitization`/`title`/`description`/`onError`/`onMount` props; no `fallback`/`loadingFallback`/`loading`, pair with a `<Suspense>` boundary instead). `<SvgInSuspense />` does not retry a failed `src`/`svg` combination on its own - it keeps throwing the same rejection to the error boundary for that combination indefinitely; retry by changing `src` (e.g. a cache-busting query string) rather than re-rendering with identical props.
+`<SvgIn />` has no `suspense` prop - use the separate `<SvgInSuspense />` component instead (same `src`/`svg`/`sanitizeFn`/`disableSanitization`/`fetchOptions`/`title`/`description`/`onError`/`onMount` props; no `fallback`/`loadingFallback`/`loading`, pair with a `<Suspense>` boundary instead). `<SvgInSuspense />` does not retry a failed `src`/`svg` combination on its own - it keeps throwing the same rejection to the error boundary for that combination indefinitely; retry by changing `src` (e.g. a cache-busting query string) rather than re-rendering with identical props.
 
 ## Entry points
 
@@ -137,7 +138,7 @@ Both only see the shared cache (default-mode `src`/`preloadSvg` calls, no `sanit
 
 - SVGs are sanitized with DOMPurify using the `svg` + `svgFilters` profile by default.
 - On the server, DOMPurify runs inside a jsdom window.
-- Only default-sanitized results are shared in the module-level cache. Raw (`disableSanitization`) and custom-sanitizer results are never written to or read from the shared cache, preventing a raw result from leaking as a sanitized result for another caller.
+- Only default-sanitized results, fetched with no `fetchOptions`, are shared in the module-level cache. Raw (`disableSanitization`), custom-sanitizer, and `fetchOptions` results are never written to or read from the shared cache, preventing a raw or per-caller result from leaking as the shared result for another caller of the same URL.
 - The fetch rejects early on unexpected `Content-Type` responses (e.g. HTML pages returned for a typo'd URL) to avoid wasting sanitizer CPU on non-SVG content.
 
 ## Comparison to similar packages
