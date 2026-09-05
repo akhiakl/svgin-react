@@ -36,7 +36,7 @@ pnpm run size
 
 All of these also run in CI on every pull request, so it is faster to catch problems locally first.
 
-Test coverage (`pnpm run test:coverage`) is enforced at a minimum of 85% (statements, branches, functions, lines). Add a test alongside any new or changed code so it stays above that.
+Test coverage (`pnpm run test:coverage`) is enforced at 100% (statements, branches, functions, lines) - the codebase is small enough to keep it there. Add a test alongside any new or changed code. If a branch is genuinely unreachable through the public API (a defensive guard, an invariant enforced elsewhere), exclude it explicitly with a `/* v8 ignore next */` comment explaining why, rather than lowering the threshold - see `src/utils/fetchAndSanitizeSvgBase.ts` or `src/utils/universalCache.ts` for examples.
 
 ## Pull request title
 

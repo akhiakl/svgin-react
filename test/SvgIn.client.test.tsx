@@ -170,6 +170,18 @@ describe('SvgIn (client component)', () => {
         await new Promise(r => setTimeout(r, 20));
     });
 
+    it('ignores a fetch rejection if the component unmounts before it rejects', async () => {
+        let reject!: (e: Error) => void;
+        mockFetch.mockReturnValue(new Promise((_r, j) => { reject = j; }));
+
+        const { unmount } = render(<SvgIn src="/slow.svg" />);
+        unmount();
+
+        // Rejecting after unmount must not throw (state update on unmounted component).
+        expect(() => reject(new Error('too late'))).not.toThrow();
+        await new Promise(r => setTimeout(r, 20));
+    });
+
     it('releases the fetch on unmount with the same src/sanitizeFn/disableSanitization it was acquired with', async () => {
         mockFetch.mockReturnValue(new Promise(() => {})); // never resolves
         const customFn = vi.fn();
@@ -468,6 +480,21 @@ describe('SvgIn (client component)', () => {
             rerender(<SvgIn src="/a.svg" loading="eager" />);
             await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
             await waitFor(() => expect(container.querySelector('circle')).not.toBeNull());
+        });
+
+        it('keeps deferring when the observer reports no intersecting entry', async () => {
+            mockFetch.mockResolvedValue('<svg><circle/></svg>');
+            render(<SvgIn src="/a.svg" loading="lazy" />);
+            await new Promise((r) => setTimeout(r, 10));
+
+            act(() => {
+                observed[0].callback(
+                    [{ isIntersecting: false } as IntersectionObserverEntry],
+                    {} as IntersectionObserver
+                );
+            });
+            await new Promise((r) => setTimeout(r, 10));
+            expect(mockFetch).not.toHaveBeenCalled();
         });
     });
 

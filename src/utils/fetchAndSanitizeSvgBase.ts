@@ -85,12 +85,15 @@ export function createFetchAndSanitizeSvg(sanitizeSvg: (svg: string) => string |
         // explicit `fetch(url, undefined)` changes call arity vs
         // `fetch(url)`, which can break a fetch wrapper/mock that branches
         // on arguments.length instead of checking the second argument's value.
+        // fetchAndSanitizeSvg below always supplies options.signal (the
+        // reference-counted cancellation signal), so this always attaches
+        // one to the actual fetch - there's no "no signal at all" case to
+        // guard for arity purposes (unlike fetchOptions itself, which really
+        // can be absent).
         const signal = options?.signal;
         const res = options?.fetchOptions
             ? await fetch(url, { ...options.fetchOptions, signal })
-            : signal
-                ? await fetch(url, { signal })
-                : await fetch(url);
+            : await fetch(url, { signal });
         if (!res.ok) throw new Error(`Failed to fetch SVG: ${url}`);
         const contentType = res.headers?.get('content-type') ?? '';
         if (contentType && !contentType.includes('svg') && !contentType.includes('xml') && !contentType.includes('octet-stream') && !contentType.includes('text/plain')) {
