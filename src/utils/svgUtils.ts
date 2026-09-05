@@ -1,12 +1,22 @@
 /**
  * Minimal HTML-escaping for text inserted into `<title>`/`<desc>` via
- * dangerouslySetInnerHTML (SvgInComponent) or a shadow root's innerHTML
- * (SvgInShadow). title/description come from the consumer's own code (not
- * the untrusted fetched SVG), so this is about not breaking the surrounding
- * markup on stray `<`/`&`, not sanitization.
+ * dangerouslySetInnerHTML (SvgInComponent), or into a shadow root's
+ * innerHTML as either text content or a quoted attribute value
+ * (buildSvgMarkup, for SvgInShadow) - hence escaping `"`/`'` too, not just
+ * the text-content-only `&`/`<`/`>`: an unescaped `"` in an attribute value
+ * built via string concatenation (`key="${value}"`) would otherwise let the
+ * value break out of the attribute and inject further markup. title/
+ * description/attrs come from the consumer's own code (not the untrusted
+ * fetched SVG), so this is about not breaking the surrounding markup, not
+ * sanitization.
  */
 export function escapeHtml(text: string): string {
-    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 /**

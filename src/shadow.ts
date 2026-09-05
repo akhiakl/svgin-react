@@ -3,7 +3,8 @@
 // scripts/check-bundle-size.mjs), guaranteed not to pull in <SvgIn />,
 // <SvgInSuspense />, or <SvgInProvider /> even for a bundler that doesn't
 // tree-shake unused named exports well. Also re-exported from
-// 'svgin-react/client' for consumers who'd rather import every client
-// component from one place - see the comment there.
+// 'svgin-react/all' for consumers who'd rather import every component from
+// one place - see that entry's own comment for why it's a separate one
+// from 'svgin-react/client' rather than folded into it.
 export { SvgInShadow } from './SvgIn.shadow.client';
 export type { SvgInShadowProps } from './types';

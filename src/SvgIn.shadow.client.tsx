@@ -14,10 +14,11 @@ import { nextInstanceId } from './utils/instanceId';
  * tree-shaking reason as `<SvgInSuspense />`: a consumer who never imports
  * this one never bundles its shadow-root/imperative-DOM code at all, which a
  * runtime branch inside the shared `<SvgIn />` code path could never achieve
- * regardless of how the bundler is configured. It's exported both from
- * `svgin-react/client` (tree-shaken away there if unused, same as
- * `<SvgInSuspense />`/`<SvgInProvider>`) and from its own `svgin-react/shadow`
- * entry point, for consumers who'd rather import it standalone.
+ * regardless of how the bundler is configured. Exported from its own
+ * `svgin-react/shadow` entry point (deliberately *not* also from
+ * `svgin-react/client` - see client.ts's own comment on why) and from
+ * `svgin-react/all`, for consumers who'd rather have every component behind
+ * one import.
  *
  * Client-only: Shadow DOM is a browser API, so there is no server-component
  * equivalent (nothing to attach a shadow root to before any DOM exists).
@@ -60,6 +61,17 @@ export const SvgInShadow: React.FC<SvgInShadowProps> = ({
     ...rest
 }) => {
     const hostRef = useRef<HTMLElement | null>(null);
+    // Tracked in a ref rather than read back via `host.shadowRoot`: a
+    // `mode: 'closed'` shadow root is not reachable that way from the
+    // outside (that's the whole point of "closed") - `host.shadowRoot`
+    // stays `null` even after a successful `attachShadow`. Relying on it
+    // for closed mode would both re-attempt `attachShadow` on every update
+    // (throwing, since a shadow root already exists) and never be able to
+    // clear stale content before writing new content in. This ref is the
+    // single source of truth for "has a shadow root already been attached"
+    // regardless of mode; `mode` itself can't be changed after the first
+    // attach (a real Shadow DOM constraint, not one this component adds).
+    const shadowRootRef = useRef<ShadowRoot | null>(null);
     const [svg, setSvg] = useState<string | null>(null);
     const [error, setError] = useState<Error | null>(null);
     const idSuffix = useRef<string | undefined>(undefined);
@@ -126,7 +138,7 @@ export const SvgInShadow: React.FC<SvgInShadowProps> = ({
         if (!svg) {
             // Nothing resolved yet (or the last resolution failed) - don't
             // leave a previous src/svg's stale content showing.
-            if (host.shadowRoot) host.shadowRoot.innerHTML = '';
+            if (shadowRootRef.current) shadowRootRef.current.innerHTML = '';
             return;
         }
         const markup = buildSvgMarkup(svg, {
@@ -136,7 +148,9 @@ export const SvgInShadow: React.FC<SvgInShadowProps> = ({
             attrs: { width, height, fill, 'aria-label': ariaLabel },
         });
         if (markup === null) return;
-        const root = host.shadowRoot ?? host.attachShadow({ mode });
+        // attachShadow throws if the host already has one - only ever call
+        // it once per host, via shadowRootRef (see its own comment above).
+        const root = shadowRootRef.current ?? (shadowRootRef.current = host.attachShadow({ mode }));
         root.innerHTML = (styles ? `<style>${styles}</style>` : '') + markup;
         const mountedSvg = root.querySelector('svg');
         if (mountedSvg) onMountRef.current?.(mountedSvg);

@@ -212,6 +212,28 @@ describe('SvgInShadow (client component)', () => {
         expect(host.shadowRoot).toBeNull();
     });
 
+    it('updates a closed-mode shadow root on a later prop change without throwing (regression)', async () => {
+        // Regression test: host.shadowRoot is always null for a closed
+        // shadow root, even from the *inside* component that created it -
+        // relying on it (rather than a ref to the created ShadowRoot) to
+        // decide whether attachShadow has already run meant every update
+        // after the first tried to attachShadow() again, which throws
+        // ("already has a ShadowRoot") since a host can only have one.
+        mockFetch.mockResolvedValue('<svg><path/></svg>');
+        const onMount = vi.fn();
+        const { rerender } = render(<SvgInShadow src="/test.svg" mode="closed" title="first" onMount={onMount} />);
+        await waitFor(() => expect(onMount).toHaveBeenCalledTimes(1));
+
+        expect(() =>
+            rerender(<SvgInShadow src="/test.svg" mode="closed" title="second" onMount={onMount} />)
+        ).not.toThrow();
+        await waitFor(() =>
+            expect(onMount).toHaveBeenLastCalledWith(
+                expect.objectContaining({ tagName: 'svg', innerHTML: expect.stringContaining('second') })
+            )
+        );
+    });
+
     it('re-fetches when the src prop changes, and clears the old shadow root content first', async () => {
         mockFetch
             .mockResolvedValueOnce('<svg><circle/></svg>')
