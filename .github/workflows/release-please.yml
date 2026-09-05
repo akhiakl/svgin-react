@@ -24,6 +24,21 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
+      # We fetch the git tree first so we can safely compute the bootstrap point 
+      # without running into API pagination limits on historical commits.
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Automatically determines the root commit of your repository 
+      # to give release-please a clear starting baseline.
+      - name: Get Root Commit SHA
+        id: root_sha
+        run: |
+          ROOT_SHA=$(git rev-list --max-parents=0 HEAD | tail -n 1)
+          echo "sha=$ROOT_SHA" >> $GITHUB_OUTPUT
+
       - uses: googleapis/release-please-action@v5
         with:
           # The default GITHUB_TOKEN cannot be used here: a release (and its
@@ -34,3 +49,5 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+          # Feeds the dynamic root commit SHA to prevent the rate limit error.
+          bootstrap-sha: ${{ steps.root_sha.outputs.sha }}
