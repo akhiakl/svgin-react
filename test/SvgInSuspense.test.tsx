@@ -194,6 +194,27 @@ describe('SvgInSuspense (client component)', () => {
         await waitFor(() => expect(onMount).toHaveBeenCalledWith(container.querySelector('svg')));
     });
 
+    it('does not call onMount when the resolved value renders no element (e.g. an empty-string result)', async () => {
+        // An empty-string sanitized result is a legitimate value (see the
+        // "treats a cached empty string as a real cache hit" test elsewhere)
+        // - SvgInComponent's `if (!svg) return fallback` treats it the same
+        // as null, rendering nothing, so svgRef never attaches to a DOM node
+        // and onMount must not be called with it.
+        mockFetch.mockResolvedValue('');
+        const onMount = vi.fn();
+
+        await act(async () => {
+            render(
+                <React.Suspense fallback={<span>loading...</span>}>
+                    <SvgInSuspense src="/empty.svg" onMount={onMount} />
+                </React.Suspense>
+            );
+        });
+
+        await new Promise((r) => setTimeout(r, 10));
+        expect(onMount).not.toHaveBeenCalled();
+    });
+
     it('sanitizes and renders a raw svg prop without calling fetchAndSanitizeSvg', async () => {
         mockSanitizeString.mockResolvedValue('<svg><circle/></svg>');
 

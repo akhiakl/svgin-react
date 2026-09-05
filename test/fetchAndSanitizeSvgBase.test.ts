@@ -282,6 +282,28 @@ describe('createFetchAndSanitizeSvg', () => {
         expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
+    it('serves a default-mode call from the shared svgCache even across two separate createFetchAndSanitizeSvg instances', async () => {
+        // A single instance's own outer memoization (setUniversalCache) would
+        // already short-circuit a second identical call before it ever
+        // re-checked the shared svgCache - this proves the shared-cache read
+        // itself, independent of that outer layer, using two separate
+        // instances (as client and server each get - see the module-scope
+        // comment on pendingByKey) that share the same underlying svgCache
+        // but have their own outer memoization.
+        mockFetchOnce('<svg>raw</svg>');
+        const instanceA = createFetchAndSanitizeSvg(vi.fn().mockResolvedValue('<svg>clean</svg>'));
+        const first = await instanceA.fetchAndSanitizeSvg('https://example.com/shared-cache.svg');
+        expect(first).toBe('<svg>clean</svg>');
+
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+        const instanceB = createFetchAndSanitizeSvg(vi.fn());
+        const second = await instanceB.fetchAndSanitizeSvg('https://example.com/shared-cache.svg');
+
+        expect(second).toBe('<svg>clean</svg>');
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it('treats a caller-supplied fetchOptions.signal firing as that caller releasing its own share', () => {
         // Design: a caller's own fetchOptions.signal is never combined
         // directly into the shared fetch - it's treated as an early

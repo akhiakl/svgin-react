@@ -107,6 +107,14 @@ export function setUniversalCache<T extends (...args: any[]) => any>(fn: T): T {
                             cached = (result as Promise<unknown>).then(
                                 (value) => value,
                                 (err) => {
+                                    // `cached` is only ever reassigned for this exact key by a
+                                    // later call made *after* this entry is deleted (which only
+                                    // happens right here, when the promise this handler is
+                                    // attached to itself settles) - so by construction
+                                    // inMemoryCache.get(key) is always still `cached` at this
+                                    // point; the check is a defensive guard against that
+                                    // invariant ever changing, not a reachable branch today.
+                                    /* v8 ignore next */
                                     if (inMemoryCache.get(key) === cached) {
                                         inMemoryCache.delete(key);
                                     }
@@ -123,6 +131,11 @@ export function setUniversalCache<T extends (...args: any[]) => any>(fn: T): T {
             }) as CacheWrapper<any>;
         }
     }
+    // cacheImpl is always assigned above to something truthy (either
+    // react/cache's real `cache`, or the in-memory fallback closure) - this
+    // is a type-narrowing/defensive guard for TypeScript, not a reachable
+    // branch.
+    /* v8 ignore next */
     if (!cacheImpl) throw new Error('Universal cache implementation missing');
     return cacheImpl(fn);
 }

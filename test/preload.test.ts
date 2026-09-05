@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearSvgCache, getCachedSvg } from '../src/utils/svgCache';
+import { clearSvgCache, getCachedSvg, setCachedSvg } from '../src/utils/svgCache';
 
 // Mock the server sanitizer so tests don't load jsdom
 vi.mock('../src/utils/sanitizeServer', () => ({
@@ -37,6 +37,22 @@ describe('preloadSvg', () => {
         await preloadSvg('https://example.com/preload-default.svg');
         expect(getCachedSvg('https://example.com/preload-default.svg')).toBe('<svg>sanitized</svg>');
         expect(mockSanitize).toHaveBeenCalledWith('<svg><path/></svg>');
+    });
+
+    it('skips the fetch entirely when the URL is already cached in default mode', async () => {
+        // Pre-populates the shared cache directly (as a prior fetchAndSanitizeSvg
+        // call, or an earlier preloadSvg for a *different* set of options, would
+        // have) rather than via preloadSvg itself - preloadSvg's own outer
+        // memoization would otherwise short-circuit a second identical call
+        // before ever reaching this cache check again.
+        setCachedSvg('https://example.com/already-cached.svg', '<svg>already-cached</svg>');
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+
+        await preloadSvg('https://example.com/already-cached.svg');
+
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(mockSanitize).not.toHaveBeenCalled();
     });
 
     it('skips the fetch if the URL is already in the shared cache', async () => {

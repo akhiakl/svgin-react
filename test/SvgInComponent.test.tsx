@@ -49,6 +49,20 @@ describe('SvgInComponent', () => {
         expect(svg).toHaveAttribute('viewBox', '0 0 24 24');
     });
 
+    it('forwards a single-quoted source attribute', () => {
+        const { container } = render(
+            <SvgInComponent svg={"<svg viewBox='0 0 8 8'><path/></svg>"} />
+        );
+        expect(container.querySelector('svg')).toHaveAttribute('viewBox', '0 0 8 8');
+    });
+
+    it('forwards a bare (valueless) source attribute as an empty string', () => {
+        const { container } = render(
+            <SvgInComponent svg={'<svg data-generated><path/></svg>'} />
+        );
+        expect(container.querySelector('svg')).toHaveAttribute('data-generated', '');
+    });
+
     it('explicit props override matching source SVG attributes', () => {
         const { container } = render(
             <SvgInComponent
