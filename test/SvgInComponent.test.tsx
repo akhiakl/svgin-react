@@ -1,5 +1,5 @@
-import { render } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { SvgInComponent } from '../src/SvgInComponent';
 
 describe('SvgInComponent', () => {
@@ -37,7 +37,7 @@ describe('SvgInComponent', () => {
     });
 
     it('forwards arbitrary native SVG/DOM props (style, onClick, role, tabIndex, data-*) to the rendered element', () => {
-        const onClick = () => {};
+        const onClick = vi.fn();
         const { container } = render(
             <SvgInComponent
                 svg={'<svg><path d="M0 0"/></svg>'}
@@ -50,6 +50,8 @@ describe('SvgInComponent', () => {
         );
         const svg = container.querySelector('svg');
         expect(svg).toHaveStyle({ color: 'rgb(255, 0, 0)' });
+        fireEvent.click(svg!);
+        expect(onClick).toHaveBeenCalledTimes(1);
         expect(svg).toHaveAttribute('role', 'img');
         expect(svg).toHaveAttribute('tabindex', '0');
         expect(svg).toHaveAttribute('data-testid', 'icon');
