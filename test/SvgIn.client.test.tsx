@@ -35,6 +35,26 @@ describe('SvgIn (client component)', () => {
         expect(placeholder).toHaveAttribute('aria-hidden', 'true');
     });
 
+    it('forwards arbitrary native SVG props to the loading placeholder, but keeps it non-focusable/hidden', () => {
+        mockFetch.mockReturnValue(new Promise(() => {})); // never resolves
+        const { container } = render(<SvgIn src="/test.svg" data-testid="icon" tabIndex={3} />);
+        const placeholder = container.querySelector('svg');
+        expect(placeholder).toHaveAttribute('data-testid', 'icon');
+        // The placeholder's own aria-hidden/focusable/tabIndex are fixed and
+        // must win over any consumer-supplied value while it's still loading.
+        expect(placeholder).toHaveAttribute('tabindex', '-1');
+        expect(placeholder).toHaveAttribute('aria-hidden', 'true');
+    });
+
+    it('forwards arbitrary native SVG props to the rendered element once resolved', async () => {
+        mockFetch.mockResolvedValue('<svg viewBox="0 0 24 24"><circle r="12"/></svg>');
+        const { container } = render(<SvgIn src="/test.svg" role="img" data-testid="icon" />);
+        await waitFor(() => expect(container.querySelector('circle')).not.toBeNull());
+        const svg = container.querySelector('svg');
+        expect(svg).toHaveAttribute('role', 'img');
+        expect(svg).toHaveAttribute('data-testid', 'icon');
+    });
+
     it('renders the SVG inline after a successful fetch', async () => {
         mockFetch.mockResolvedValue('<svg viewBox="0 0 24 24"><circle r="12"/></svg>');
         const { container } = render(<SvgIn src="/test.svg" />);

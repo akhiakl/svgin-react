@@ -1,6 +1,22 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, SVGProps } from 'react';
 
-export interface SvgInProps {
+export interface SvgInProps
+    extends Omit<
+        SVGProps<SVGSVGElement>,
+        // Each of these is redeclared below with its own (narrower, or
+        // differently-typed) meaning specific to this component, so the
+        // native DOM attribute of the same name is excluded here rather
+        // than silently shadowed by it.
+        | 'width'
+        | 'height'
+        | 'fill'
+        | 'className'
+        | 'title'
+        | 'onError'
+        | 'children'
+        | 'dangerouslySetInnerHTML'
+        | 'ref'
+    > {
     /** URL of the SVG to fetch. Ignored if `svg` is also given. Either `src` or `svg` is required. */
     src?: string;
     /** Raw SVG markup already in hand (e.g. from a CMS field or API response) - sanitized and rendered directly, skipping the fetch step entirely. Takes precedence over `src` if both are given. */

@@ -142,9 +142,11 @@ await preloadSvg('/icons/alert.svg', {
 | `onMount` | `(svg: SVGSVGElement) => void` | Client component only. Called with the rendered `<svg>` DOM element right after it mounts or updates. No-op on the server component (there is no DOM to hand back). |
 | `loading` | `'eager' \| 'lazy'` | Client component only. `'lazy'` defers the fetch until the placeholder scrolls near the viewport ([`IntersectionObserver`](#lazy-loading)). Default `'eager'`. |
 
+Any other standard SVG/DOM prop (`style`, `onClick`, `role`, `tabIndex`, `stroke`, `strokeWidth`, `data-*`, native `aria-*`, etc.) is also accepted and forwarded to the rendered `<svg>` element, same as on a plain `<svg>` tag - `<SvgInProps>` extends `React.SVGProps<SVGSVGElement>` for everything not already listed above with its own meaning.
+
 Need Suspense instead? See [`<SvgInSuspense />`](#svginsuspense-client-component) below - it's a separate component rather than a prop on `<SvgIn />`, specifically so a bundler can drop it entirely for consumers who never import it.
 
-Source SVG attributes (`viewBox`, `preserveAspectRatio`, `xmlns`, etc.) are automatically forwarded from the fetched SVG to the rendered element. Explicit props (`width`, `height`, `fill`, `className`, `ariaLabel`) always take precedence.
+Source SVG attributes (`viewBox`, `preserveAspectRatio`, `xmlns`, etc.) are automatically forwarded from the fetched SVG to the rendered element. Explicit props (`width`, `height`, `fill`, `className`, `ariaLabel`, and any other native SVG prop you pass) always take precedence.
 
 Internal ids (on `<linearGradient>`, `<clipPath>`, `<mask>`, `<filter>`, etc.) are automatically made unique per rendered instance, so two `<SvgIn>` copies of the same icon on one page never collide over a shared gradient or clip path.
 
