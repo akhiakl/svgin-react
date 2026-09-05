@@ -27,7 +27,7 @@ Inlining raw SVG markup from a URL you don't fully control is a real security ri
 |                                       | **svgin-react** | react-svg | react-inlinesvg |
 | ------------------------------------- | :--------------: | :-------: | :--------------: |
 | Sanitized by default                  |        ✅         | opt-in only | ❌ none          |
-| Minzipped size (client entry)         |     **~2.7 KB**     |   ~3.8 KB  |     ~7.7 KB       |
+| Minzipped size (single `SvgIn`/equivalent import, tree-shaken) |     **~2.7 KB**     |   ~3.8 KB  |     ~7.7 KB       |
 | React Server Components support       |        ✅         |     ❌     |        ❌         |
 | Real React element (not DOM injection)|        ✅         |     ❌     |        ✅         |
 | Forced runtime dependency             |    none (optional peers) | `@tanem/svg-injector` | `react-from-dom` |
@@ -48,7 +48,7 @@ Sizes measured by bundling `{ SvgIn }` (or each alternative's equivalent single 
 | Output                   | A rendered `<svg>` element                | Generated React component **source code**       |
 | Fits SVGs whose content isn't known until runtime (CMS fields, user uploads, a URL from an API response) | ✅ | ❌ - the file has to exist in your project at build time |
 | Sanitizes untrusted markup | ✅ (DOMPurify by default)                 | Not its job - it optimizes/transforms SVGs you already trust as part of your own codebase, it isn't built to run against untrusted input |
-| Runtime bundle cost of the tool itself | ~2.7 KB (client entry, see above) | None - it's a build-time devDependency, not shipped to the browser |
+| Runtime bundle cost of the tool itself | ~2.7 KB (tree-shaken single import, see above) | None - it's a build-time devDependency, not shipped to the browser |
 
 If your icons are static files that ship with your app (a logo, a fixed icon set), SVGR is the better fit - it does its work once at build time and adds nothing to your runtime bundle. Reach for svgin-react when the SVG's content isn't known until runtime: fetched from a URL, returned by an API, stored in a database, or otherwise not a file sitting in your repo when you build.
 

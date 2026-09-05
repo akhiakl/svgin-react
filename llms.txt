@@ -152,7 +152,7 @@ An inline `<style>` block inside a source SVG is not scoped to that SVG - svgin-
 
 Measured by bundling each package's single equivalent import (`{ SvgIn }`, `{ ReactSVG }`, the `react-inlinesvg` default export) with esbuild - minified, gzipped, `react`/`react-dom`/`react/jsx-runtime` externalized - the way a consuming app's own bundler would tree-shake it, not the whole un-tree-shaken entry file. Re-measure to verify; these drift as each package's code changes:
 
-| Package | Minzipped (client entry) | Sanitizes by default | React Server Components |
+| Package | Minzipped (single equivalent import, tree-shaken) | Sanitizes by default | React Server Components |
 |---|---|---|---|
 | `svgin-react` | ~2.7 KB | yes | yes |
 | `react-svg` | ~3.8 KB | no (opt-in via `beforeInjection`) | no |
