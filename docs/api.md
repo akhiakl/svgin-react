@@ -23,7 +23,7 @@ Complete props and exports for every entry point. For the quick-start and a gene
 | `onMount` | `(svg: SVGSVGElement) => void` | Client component only. Called with the rendered `<svg>` DOM element right after it mounts or updates. No-op on the server component (there is no DOM to hand back). |
 | `loading` | `'eager' \| 'lazy'` | Client component only. `'lazy'` defers the fetch until the placeholder scrolls near the viewport ([Lazy loading](#lazy-loading)). Default `'eager'`. |
 
-Any other standard SVG/DOM prop (`style`, `onClick`, `role`, `tabIndex`, `stroke`, `strokeWidth`, `data-*`, native `aria-*`, etc.) is also accepted and forwarded to the rendered `<svg>` element, same as on a plain `<svg>` tag. `SvgInProps` extends `React.SVGProps<SVGSVGElement>` for everything not already listed above with its own meaning.
+The table above only lists props with svgin-react-specific behavior. Any other standard [SVG presentation or DOM attribute](https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute) (`style`, `onClick`, `role`, `tabIndex`, `stroke`, `strokeWidth`, `data-*`, native `aria-*`, etc.) is also accepted and forwarded to the rendered `<svg>` element, same as on a plain `<svg>` tag. `SvgInProps` extends `React.SVGProps<SVGSVGElement>` for everything not already listed above with its own meaning.
 
 Source SVG attributes (`viewBox`, `preserveAspectRatio`, `xmlns`, etc.) are automatically forwarded from the fetched SVG to the rendered element. Explicit props (`width`, `height`, `fill`, `className`, `ariaLabel`, and any other native SVG prop you pass) always take precedence.
 
@@ -97,7 +97,7 @@ Renders the sanitized SVG inside a [shadow root](https://developer.mozilla.org/e
 
 No `loading`/`loadingFallback` yet, the host simply renders empty while a fetch is pending or after a failed one with no `fallback` given.
 
-Any other standard prop (`style`, `onClick`, `id`, `role`, `tabIndex`, `data-*`, native `aria-*`, etc.) is forwarded to the **host** element, not the SVG inside the shadow root. This is deliberate: the shadow boundary means ordinary page CSS/JS cannot reach the SVG's internals anyway, so there would be nothing meaningful for those props to target there.
+The table above only lists props with svgin-react-specific behavior. Any other standard [HTML attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes) (`style`, `onClick`, `id`, `role`, `tabIndex`, `data-*`, native `aria-*`, etc.) is forwarded to the **host** element, not the SVG inside the shadow root. This is deliberate: the shadow boundary means ordinary page CSS/JS cannot reach the SVG's internals anyway, so there would be nothing meaningful for those props to target there.
 
 ```tsx
 <SvgInShadow
