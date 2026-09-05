@@ -31,8 +31,11 @@ npm install svgin-react
 The default sanitizer needs [DOMPurify](https://github.com/cure53/DOMPurify), and on the server it also needs [jsdom](https://github.com/jsdom/jsdom):
 
 ```sh
-npm install dompurify        # client component
-npm install dompurify jsdom  # server component
+# client component only
+npm install dompurify
+
+# server component only
+npm install dompurify jsdom
 ```
 
 If you always pass your own `sanitizeFn`, or always use `disableSanitization`, you do not need either. They are optional peer dependencies, loaded lazily only when the default sanitizer actually runs.
@@ -52,8 +55,8 @@ This one import works in both a client component and a server component. In a Ne
 To force one or the other:
 
 ```tsx
-import { SvgIn } from 'svgin-react/client'; // client component
-import { SvgIn } from 'svgin-react/server'; // server component
+import { SvgIn as SvgInClient } from 'svgin-react/client'; // client component
+import { SvgIn as SvgInServer } from 'svgin-react/server'; // server component
 ```
 
 Works with any React 19+ setup: Next.js (Pages Router and App Router), Remix, Vite + React, Create React App, Astro (React islands), and plain Node SSR.

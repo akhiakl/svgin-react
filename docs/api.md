@@ -86,11 +86,11 @@ Renders the sanitized SVG inside a [shadow root](https://developer.mozilla.org/e
 | --- | --- | --- |
 | `src`, `svg` | `string` | Same as `<SvgIn />`. |
 | `fetchOptions` | `RequestInit` | Same as `<SvgIn />`. |
-| `width`, `height`, `fill`, `ariaLabel` | | Applied to the inner `<svg>`, same as `<SvgIn />`. |
+| `width`, `height`, `fill`, `ariaLabel` | `number \| string` / `string` | Same as `<SvgIn />`, applied to the inner `<svg>`. |
 | `title`, `description` | `string` | Same as `<SvgIn />`, injected into the shadow-rendered SVG. |
-| `sanitizeFn`, `disableSanitization` | | Same as `<SvgIn />`. |
+| `sanitizeFn`, `disableSanitization` | `(svg: string) => Promise<string>` / `boolean` | Same as `<SvgIn />`. |
 | `fallback` | `ReactNode` | Rendered outside the shadow root, in the light DOM, if the fetch or sanitization fails. |
-| `onError`, `onMount` | | Same as `<SvgIn />`. `onMount` receives the `<svg>` element inside the shadow root. |
+| `onError`, `onMount` | `(error: Error) => void` / `(svg: SVGSVGElement) => void` | Same as `<SvgIn />`. `onMount` receives the `<svg>` element inside the shadow root. |
 | `styles` | `string` | CSS injected inside the shadow root alongside the SVG. Scoped in both directions, see above. |
 | `mode` | `'open' \| 'closed'` | Passed to `attachShadow`. Default `'open'`. |
 | `as` | `'span' \| 'div'` | Tag name for the host element. Default `'span'`. |
