@@ -78,7 +78,7 @@ describe('buildSvgMarkup', () => {
         expect(markup).toContain('data-generated=""');
     });
 
-    it('injects title/desc ids without a "-" suffix when idSuffix is not given', () => {
+    it('injects title/desc ids with an empty (bare "-") suffix when idSuffix is not given', () => {
         const markup = buildSvgMarkup('<svg><path/></svg>', { title: 'Alert', description: 'Warns' });
         expect(markup).toContain('<title id="svgin-title-">Alert</title>');
         expect(markup).toContain('<desc id="svgin-desc-">Warns</desc>');

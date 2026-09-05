@@ -76,11 +76,20 @@ export function SvgInShadow({
     // stays `null` even after a successful `attachShadow`. Relying on it
     // for closed mode would both re-attempt `attachShadow` on every update
     // (throwing, since a shadow root already exists) and never be able to
-    // clear stale content before writing new content in. This ref is the
-    // single source of truth for "has a shadow root already been attached"
-    // regardless of mode; `mode` itself can't be changed after the first
-    // attach (a real Shadow DOM constraint, not one this component adds).
-    const shadowRootRef = useRef<ShadowRoot | null>(null);
+    // clear stale content before writing new content in. `mode` itself
+    // can't be changed after the first attach (a real Shadow DOM
+    // constraint, not one this component adds).
+    //
+    // Paired with the `host` it was created for (not just the `ShadowRoot`
+    // alone): the host element itself is replaced whenever `as` changes
+    // (React unmounts the old `<span>`/`<div>` and mounts a new one), or
+    // whenever this component re-renders `fallback` on error and later
+    // recovers (a fresh host element commits once `error` clears) - in
+    // either case `hostRef.current` becomes a *different* DOM node, and a
+    // shadow root created for the old, now-detached one is worthless. The
+    // effect below resets this ref when its `host` no longer matches
+    // `hostRef.current`, rather than reusing a stale root.
+    const shadowRootRef = useRef<{ host: HTMLElement; root: ShadowRoot } | null>(null);
     const [svg, setSvg] = useState<string | null>(null);
     const [error, setError] = useState<Error | null>(null);
     const idSuffix = useRef<string | undefined>(undefined);
@@ -144,10 +153,16 @@ export function SvgInShadow({
         // SvgIn.client.tsx.
         /* v8 ignore next */
         if (!host) return;
+        // Discard a shadow root that belonged to a previous, now-detached
+        // host element (see the ref's own comment) - it must not be reused
+        // for the current one.
+        if (shadowRootRef.current && shadowRootRef.current.host !== host) {
+            shadowRootRef.current = null;
+        }
         if (!svg) {
             // Nothing resolved yet (or the last resolution failed) - don't
             // leave a previous src/svg's stale content showing.
-            if (shadowRootRef.current) shadowRootRef.current.innerHTML = '';
+            if (shadowRootRef.current) shadowRootRef.current.root.innerHTML = '';
             return;
         }
         const markup = buildSvgMarkup(svg, {
@@ -159,7 +174,8 @@ export function SvgInShadow({
         if (markup === null) return;
         // attachShadow throws if the host already has one - only ever call
         // it once per host, via shadowRootRef (see its own comment above).
-        const root = shadowRootRef.current ?? (shadowRootRef.current = host.attachShadow({ mode }));
+        const root = shadowRootRef.current?.root ?? host.attachShadow({ mode });
+        if (!shadowRootRef.current) shadowRootRef.current = { host, root };
         // `markup` alone goes through innerHTML (it's already a well-formed
         // <svg> string assembled by buildSvgMarkup, with every attribute/
         // text value escaped). `styles`, though, is arbitrary consumer-
@@ -183,7 +199,7 @@ export function SvgInShadow({
         /* v8 ignore next */
         if (!mountedSvg) return;
         onMountRef.current?.(mountedSvg);
-    }, [svg, title, description, width, height, fill, ariaLabel, styles, mode]);
+    }, [svg, title, description, width, height, fill, ariaLabel, styles, mode, Tag]);
 
     if (error) return fallback ?? null;
     // React.createElement rather than JSX: `as` is a dynamic tag name

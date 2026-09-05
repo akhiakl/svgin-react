@@ -188,6 +188,40 @@ describe('SvgInShadow (client component)', () => {
         expect(container.querySelector('span')).toBeNull();
     });
 
+    it('attaches a fresh shadow root to the new host when as changes on a later render (regression)', async () => {
+        // Regression test: the host element is replaced (React unmounts the
+        // old <span>, mounts a new <div>) whenever `as` changes - reusing
+        // the ShadowRoot created for the *old*, now-detached host (keyed
+        // only by ShadowRoot, not by which host it belonged to) would write
+        // into a detached tree while the new host stayed empty forever.
+        mockFetch.mockResolvedValue('<svg><circle/></svg>');
+        const { container, rerender } = render(<SvgInShadow src="/test.svg" as="span" />);
+        const spanHost = container.querySelector('span')!;
+        await waitFor(() => expect(shadowRoot(spanHost).querySelector('circle')).not.toBeNull());
+
+        rerender(<SvgInShadow src="/test.svg" as="div" />);
+        const divHost = container.querySelector('div')!;
+        expect(container.querySelector('span')).toBeNull();
+        await waitFor(() => expect(shadowRoot(divHost).querySelector('circle')).not.toBeNull());
+    });
+
+    it('reattaches to a fresh host after recovering from an error (regression)', async () => {
+        // Regression test: on error this component renders `fallback`
+        // instead of the host element at all - the host unmounts. If the
+        // next render recovers (a later src succeeds), a brand new host
+        // element commits, and the stale ShadowRoot reference from before
+        // the error must not be reused for it.
+        mockFetch.mockRejectedValueOnce(new Error('boom'));
+        const { container, rerender } = render(<SvgInShadow src="/broken.svg" fallback={<span>oops</span>} />);
+        await waitFor(() => expect(container.textContent).toBe('oops'));
+
+        mockFetch.mockResolvedValue('<svg><circle/></svg>');
+        rerender(<SvgInShadow src="/fixed.svg" fallback={<span>oops</span>} />);
+        await waitFor(() => expect(container.textContent).not.toBe('oops'));
+        const host = container.querySelector('span')!;
+        await waitFor(() => expect(shadowRoot(host).querySelector('circle')).not.toBeNull());
+    });
+
     it('applies className/style to the host element, not the svg inside the shadow root', async () => {
         mockFetch.mockResolvedValue('<svg><path/></svg>');
         const { container } = render(
