@@ -175,6 +175,7 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
         return (
             <svg
                 ref={svgRef}
+                {...rest}
                 width={rest.width}
                 height={rest.height}
                 fill={rest.fill}

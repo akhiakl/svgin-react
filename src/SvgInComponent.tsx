@@ -31,14 +31,36 @@ function parseSvgAttrs(attrString: string): Record<string, string> {
  *
  * Attributes from the source `<svg>` tag (e.g. `viewBox`, `xmlns`,
  * `preserveAspectRatio`) are forwarded to the rendered element. Explicit
- * props passed by the consumer always take precedence.
+ * props passed by the consumer always take precedence - this includes any
+ * other standard SVG/DOM prop (`style`, `onClick`, `stroke`, `role`,
+ * `tabIndex`, `data-*`, native `aria-*`, etc.), which SvgInProps accepts via
+ * `SVGProps<SVGSVGElement>` and this component spreads onto the rendered
+ * element after the source attributes.
  */
 export const SvgInComponent: React.FC<
     // 'svg' is also omitted: SvgInProps.svg is the caller-supplied *raw*
     // markup (input to sanitization), while this component's own `svg` prop
     // below is the already-sanitized markup ready to render - same name,
-    // different meaning at different pipeline stages.
-    Omit<SvgInProps, 'src' | 'sanitizeFn' | 'svg'> & {
+    // different meaning at different pipeline stages. The other omissions
+    // are props this component never reads and never forwards to the DOM:
+    // they're either handled entirely by the client/server/suspense
+    // wrappers before this component ever sees them (fetchOptions,
+    // disableSanitization, onError, onMount, loadingFallback, loading), or -
+    // for onError specifically - would otherwise conflict with the native
+    // SVG `onError` DOM event handler now pulled in via SVGProps, which has
+    // an incompatible signature.
+    Omit<
+        SvgInProps,
+        | 'src'
+        | 'sanitizeFn'
+        | 'svg'
+        | 'fetchOptions'
+        | 'disableSanitization'
+        | 'onError'
+        | 'onMount'
+        | 'loadingFallback'
+        | 'loading'
+    > & {
         svg: string | null;
         idSuffix?: string;
         // React 19 passes `ref` through to function components as a normal
@@ -46,7 +68,7 @@ export const SvgInComponent: React.FC<
         // SvgIn.client.tsx can hand it to the onMount callback.
         ref?: React.Ref<SVGSVGElement>;
     }
-> = ({ svg, width, height, fill, fallback = null, className, ariaLabel, title, description, idSuffix, ref }) => {
+> = ({ svg, width, height, fill, fallback = null, className, ariaLabel, title, description, idSuffix, ref, ...rest }) => {
     if (!svg) return fallback;
     let inner = extractSvgInner(svg);
     if (inner !== null) {
@@ -67,6 +89,7 @@ export const SvgInComponent: React.FC<
             <svg
                 ref={ref}
                 {...sourceAttrs}
+                {...rest}
                 {...(width !== undefined ? { width } : {})}
                 {...(height !== undefined ? { height } : {})}
                 {...(fill ? { fill } : {})}
