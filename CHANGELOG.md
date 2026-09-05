@@ -4,6 +4,36 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/). [release-please](https://github.com/googleapis/release-please) generates entries here automatically from Conventional Commits on every release - do not hand-edit below this point.
 
+## [1.0.0](https://github.com/akhiakl/svgin-react/compare/v0.10.0...v1.0.0) (2026-09-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* `import { SvgInSuspense } from 'svgin-react/client'` no longer works. Update it to `import { SvgInSuspense } from 'svgin-react/suspense'`. `import { SvgIn, SvgInProvider } from 'svgin-react/client'` is unaffected.
+
+### Features
+
+* accept and forward arbitrary native SVG/DOM props ([dbbdd66](https://github.com/akhiakl/svgin-react/commit/dbbdd66d4b94a06dbce0f416c458bf05b63a2c33))
+* accept and forward arbitrary native SVG/DOM props ([4327fe9](https://github.com/akhiakl/svgin-react/commit/4327fe9554ad20316bbffaadaa13f0e1e95dd56d))
+* add SvgInShadow (shadow DOM encapsulation) and dedicated subpath entries ([0b046bd](https://github.com/akhiakl/svgin-react/commit/0b046bde31a0d33b0d20887df0a77d5a4114fa2d))
+* add SvgInShadow (shadow DOM style encapsulation) and shadow/all entry points ([511b7e7](https://github.com/akhiakl/svgin-react/commit/511b7e75d8f67f5ae365db45e3f53b2cddd6f516))
+* forward native host-element props on SvgInShadow; docs ([c1ccfff](https://github.com/akhiakl/svgin-react/commit/c1ccfff72907285370aa986eaeea586320e8a5a1))
+* move SvgInSuspense to its own svgin-react/suspense entry point ([6799c70](https://github.com/akhiakl/svgin-react/commit/6799c70e26867eb480cd996ed60d6c4ee1127770))
+
+
+### Bug Fixes
+
+* aria-label precedence, styles XSS footgun, and React.FC children typing ([d8a5f7f](https://github.com/akhiakl/svgin-react/commit/d8a5f7fd7d81a581e449d8cb25d4dbd731a15d5e))
+* closed-mode shadow root updates and unescaped-quote attribute injection ([ae73d78](https://github.com/akhiakl/svgin-react/commit/ae73d7804b0402c8220f633311a9041fd7e93e18))
+* stale shadow root reused after host element replacement ([a3c1236](https://github.com/akhiakl/svgin-react/commit/a3c12360e00c608cf61b37cb885e4640f833b31d))
+
+
+### Documentation
+
+* fix inaccurate useLatestRef doc comment ([906120d](https://github.com/akhiakl/svgin-react/commit/906120d4b8cd8cd4bee79403147ae97daa0ef4c4))
+* fix misleading "client entry" label on tree-shaken size comparison ([36f29bf](https://github.com/akhiakl/svgin-react/commit/36f29bfcefd789439e6c078fea7aa39b7bde2e31))
+* refresh stale bundle-size comparison numbers ([4bf6571](https://github.com/akhiakl/svgin-react/commit/4bf6571840862349afd824402ee08bc1ca5b3294))
+
 ## [0.10.0](https://github.com/akhiakl/svgin-react/compare/v0.9.2...v0.10.0) (2026-09-04)
 
 
