@@ -203,15 +203,20 @@ describe('SvgInSuspense (client component)', () => {
         mockFetch.mockResolvedValue('');
         const onMount = vi.fn();
 
+        let container!: HTMLElement;
         await act(async () => {
-            render(
+            ({ container } = render(
                 <React.Suspense fallback={<span>loading...</span>}>
                     <SvgInSuspense src="/empty.svg" onMount={onMount} />
                 </React.Suspense>
-            );
+            ));
         });
 
-        await new Promise((r) => setTimeout(r, 10));
+        // Wait for the Suspense fallback to actually be replaced (the
+        // promise resolved and the boundary committed its real render -
+        // nothing, in this case) rather than a fixed delay, so this doesn't
+        // depend on how fast that happens to settle.
+        await waitFor(() => expect(container.textContent).not.toBe('loading...'));
         expect(onMount).not.toHaveBeenCalled();
     });
 

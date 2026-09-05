@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearSvgCache } from '../src/utils/svgCache';
 
 // These thin one-line wrapper modules (createFetchAndSanitizeSvg/
@@ -9,6 +9,19 @@ import { clearSvgCache } from '../src/utils/svgCache';
 // the real sanitizer for that side (client DOMPurify, server DOMPurify+jsdom)
 // actually gets called and actually sanitizes.
 describe('entry point wiring (real sanitizers, not mocked)', () => {
+    beforeEach(() => {
+        // Vitest isolates modules per test file by default, so these
+        // dynamic imports already get the real, unmocked module graph
+        // rather than another file's vi.mock of the same specifier.
+        // Resetting explicitly here makes that independent of that default
+        // (e.g. if isolation were ever turned off project-wide) and of
+        // vi.doMock/vi.mock leaking between the `it` blocks in this file.
+        vi.resetModules();
+        vi.doUnmock('../src/utils/fetchAndSanitizeSvgClient');
+        vi.doUnmock('../src/utils/fetchAndSanitizeSvgServer');
+        vi.doUnmock('../src/utils/sanitizeSvgStringServer');
+    });
+
     afterEach(() => {
         vi.unstubAllGlobals();
         clearSvgCache();

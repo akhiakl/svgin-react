@@ -124,7 +124,7 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
         // has committed (canDefer implies loadingFallback is undefined, so
         // that placeholder is always what's rendered here), so el is never
         // actually null in practice.
-        /* v8 ignore next -- unreachable in practice, see comment above */
+        /* v8 ignore next */
         if (!el) return;
         const observer = new IntersectionObserver(
             (entries) => {
