@@ -50,6 +50,20 @@ describe('buildSvgMarkup', () => {
         expect(markup).not.toContain('aria-labelledby');
     });
 
+    it('still auto-wires aria-labelledby when the source SVG (not an explicit attrs override) already has its own aria-label', () => {
+        // Regression test: checking the *merged* attrs (source + overrides)
+        // for an existing aria-label - rather than only an explicit
+        // `attrs['aria-label']` override - would incorrectly skip wiring
+        // aria-labelledby here, diverging from SvgInComponent's own
+        // behavior (which always wires aria-labelledby to the injected
+        // title unless the *consumer* passes an explicit aria-label).
+        const markup = buildSvgMarkup('<svg aria-label="from source"><path/></svg>', {
+            title: 'Alert',
+            idSuffix: 'x',
+        });
+        expect(markup).toContain('aria-labelledby="svgin-title-x"');
+    });
+
     it('uniquifies internal ids when idSuffix is given', () => {
         const markup = buildSvgMarkup('<svg><linearGradient id="g"/><rect fill="url(#g)"/></svg>', {
             idSuffix: 'a',

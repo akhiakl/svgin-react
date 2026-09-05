@@ -78,6 +78,24 @@ describe('SvgInShadow (client component)', () => {
         expect(shadowRoot(host).querySelector('style')?.textContent).toBe('circle { fill: red; }');
     });
 
+    it('treats a value in styles containing "</style>" as plain text, not markup (regression: HTML injection via textContent)', async () => {
+        // Regression test: styles used to be concatenated into the shadow
+        // root's innerHTML as a raw string (`<style>${styles}</style>`),
+        // so a value containing "</style>" could close the tag early and
+        // inject arbitrary markup (e.g. a <script>, harmless here since
+        // scripts don't execute via innerHTML, but still real injection).
+        // Building a real <style> element and assigning textContent treats
+        // the whole value as text unconditionally.
+        mockFetch.mockResolvedValue('<svg><circle/></svg>');
+        const malicious = '</style><img id="injected">';
+        const { container } = render(<SvgInShadow src="/test.svg" styles={malicious} />);
+        const host = container.querySelector('span')!;
+
+        await waitFor(() => expect(shadowRoot(host).querySelector('circle')).not.toBeNull());
+        expect(shadowRoot(host).querySelector('style')?.textContent).toBe(malicious);
+        expect(shadowRoot(host).querySelector('img')).toBeNull();
+    });
+
     it('applies width/height/fill/ariaLabel and injects title/description, same precedence as SvgInComponent', async () => {
         mockFetch.mockResolvedValue('<svg fill="blue"><path/></svg>');
         const { container } = render(

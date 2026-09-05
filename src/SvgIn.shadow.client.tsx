@@ -38,7 +38,16 @@ import { nextInstanceId } from './utils/instanceId';
  * `data-*`, native `aria-*`, etc.) is forwarded to the *host* element - see
  * SvgInShadowProps for why the host rather than the inner `<svg>`.
  */
-export const SvgInShadow: React.FC<SvgInShadowProps> = ({
+// A plain function typed directly on SvgInShadowProps, not React.FC<...>:
+// SvgInShadowProps deliberately omits `children` (there's nothing for a
+// consumer to pass as children of a component that owns its own rendered
+// content imperatively), and while the currently-pinned @types/react no
+// longer has React.FC silently reintroduce an implicit `children?: ReactNode`
+// (verified: `<SvgInShadow>text</SvgInShadow>` is a type error either way),
+// older/different @types/react versions have behaved differently - avoiding
+// React.FC here removes any doubt rather than relying on that being true for
+// every consumer's installed type version.
+export function SvgInShadow({
     src,
     svg: svgProp,
     fetchOptions,
@@ -59,7 +68,7 @@ export const SvgInShadow: React.FC<SvgInShadowProps> = ({
     className,
     style,
     ...rest
-}) => {
+}: SvgInShadowProps): React.ReactNode {
     const hostRef = useRef<HTMLElement | null>(null);
     // Tracked in a ref rather than read back via `host.shadowRoot`: a
     // `mode: 'closed'` shadow root is not reachable that way from the
@@ -151,9 +160,29 @@ export const SvgInShadow: React.FC<SvgInShadowProps> = ({
         // attachShadow throws if the host already has one - only ever call
         // it once per host, via shadowRootRef (see its own comment above).
         const root = shadowRootRef.current ?? (shadowRootRef.current = host.attachShadow({ mode }));
-        root.innerHTML = (styles ? `<style>${styles}</style>` : '') + markup;
+        // `markup` alone goes through innerHTML (it's already a well-formed
+        // <svg> string assembled by buildSvgMarkup, with every attribute/
+        // text value escaped). `styles`, though, is arbitrary consumer-
+        // supplied CSS text, not HTML - concatenating it into an innerHTML
+        // string as `<style>${styles}</style>` would let a value containing
+        // `</style><script>...` break out and inject real markup. Building
+        // a real <style> element and assigning textContent instead treats
+        // it purely as text, the same way a native <style> tag's content
+        // always would, with no HTML-injection risk regardless of content.
+        root.innerHTML = markup;
+        if (styles) {
+            const styleEl = document.createElement('style');
+            styleEl.textContent = styles;
+            root.prepend(styleEl);
+        }
         const mountedSvg = root.querySelector('svg');
-        if (mountedSvg) onMountRef.current?.(mountedSvg);
+        // Defensive only: buildSvgMarkup returned non-null above, which is
+        // only ever a well-formed `<svg ...>...</svg>` string (see its own
+        // contract) - the querySelector immediately after setting it as
+        // innerHTML always finds that same element in practice.
+        /* v8 ignore next */
+        if (!mountedSvg) return;
+        onMountRef.current?.(mountedSvg);
     }, [svg, title, description, width, height, fill, ariaLabel, styles, mode]);
 
     if (error) return fallback ?? null;

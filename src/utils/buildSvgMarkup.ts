@@ -56,9 +56,14 @@ export function buildSvgMarkup(svg: string, options: BuildSvgMarkupOptions = {})
         // `{...(fill ? { fill } : {})}`-style conditional spreads.
         if (value !== undefined && value !== '') merged[key] = String(value);
     }
-    // Explicit aria-label (passed in `attrs`) always wins over the
-    // auto-wired aria-labelledby, same precedence as SvgInComponent.
-    if (!merged['aria-label'] && titleId) merged['aria-labelledby'] = titleId;
+    // Only an *explicit* aria-label (passed in `attrs`) disables the
+    // auto-wired aria-labelledby, same precedence as SvgInComponent - not a
+    // same-named attribute the source SVG happened to already have, which
+    // `merged['aria-label']` would also include (a real bug found in
+    // review: SvgInComponent still wires aria-labelledby to the injected
+    // title even when the source's own aria-label is present, so this must
+    // match).
+    if (!attrs['aria-label'] && titleId) merged['aria-labelledby'] = titleId;
     if (descId) merged['aria-describedby'] = descId;
 
     const attrString = Object.entries(merged)
