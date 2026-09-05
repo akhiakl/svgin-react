@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 export interface SvgInProps {
     /** URL of the SVG to fetch. Ignored if `svg` is also given. Either `src` or `svg` is required. */
@@ -56,4 +56,65 @@ export interface SvgInProps {
      * starts eagerly). Default `'eager'`.
      */
     loading?: 'eager' | 'lazy';
+}
+
+/**
+ * Props for `<SvgInShadow />` - a separate, client-only component (see its
+ * own file for why) rather than a mode/prop on `<SvgIn />`. It renders into
+ * a shadow root instead of directly into the light DOM, so the SVG's own
+ * markup and any `styles` given here are fully encapsulated: page CSS never
+ * reaches in (an ancestor's `svg { fill: ... }` rule can't leak through the
+ * shadow boundary), and nothing inside leaks back out onto the page. This is
+ * the fix for the inline-`<style>` scoping limitation documented for
+ * `<SvgIn />`/`<SvgInSuspense />` in the README's "Known limitations".
+ *
+ * Deliberately a smaller prop surface than `SvgInProps`: no `loading`/
+ * `loadingFallback` (lazy loading and a custom pending state aren't
+ * supported yet - see the README), and no native SVG/DOM props, since the
+ * rendered `<svg>` here lives inside a shadow tree this component owns
+ * imperatively (via a shadow root's `innerHTML`), not as a React element -
+ * `className`/`style` below apply to the *host* element instead.
+ */
+export interface SvgInShadowProps {
+    /** URL of the SVG to fetch. Ignored if `svg` is also given. Either `src` or `svg` is required. */
+    src?: string;
+    /** Raw SVG markup already in hand - sanitized and rendered directly, skipping the fetch step. Takes precedence over `src` if both are given. */
+    svg?: string;
+    /** Passed through as the second argument to `fetch` for `src`. See `SvgInProps.fetchOptions` for the full caching caveat - it applies here too. */
+    fetchOptions?: RequestInit;
+    width?: number | string;
+    height?: number | string;
+    fill?: string;
+    /** Rendered (outside the shadow root, in the light DOM) if the fetch or sanitization fails. */
+    fallback?: ReactNode;
+    ariaLabel?: string;
+    /** Injects/overrides a <title> element inside the rendered SVG. */
+    title?: string;
+    /** Injects/overrides a <desc> element inside the rendered SVG. */
+    description?: string;
+    sanitizeFn?: (svg: string) => Promise<string>;
+    disableSanitization?: boolean;
+    /** Called when the fetch or sanitization fails, alongside rendering `fallback`. */
+    onError?: (error: Error) => void;
+    /** Called with the rendered `<svg>` element (inside the shadow root) right after it mounts or updates. */
+    onMount?: (svg: SVGSVGElement) => void;
+    /**
+     * Extra CSS injected inside the shadow root alongside the SVG, via a
+     * `<style>` element - fully scoped by the shadow boundary in both
+     * directions: these rules never leak out onto the page, and the page's
+     * own CSS never reaches in to affect them (or the SVG's own inline
+     * `<style>`/presentation attributes). Use this to style the SVG's inner
+     * elements (`svg :is(path, circle) { fill: ... }`, `:host { ... }` for
+     * the host element itself, etc.) without any risk of collateral effects
+     * outside this one instance.
+     */
+    styles?: string;
+    /** Shadow root mode passed to `attachShadow`. `'closed'` hides the shadow tree from `element.shadowRoot` (still inspectable via browser devtools). Default `'open'`. */
+    mode?: 'open' | 'closed';
+    /** Tag name for the host element the shadow root attaches to. Default `'span'`. */
+    as?: 'span' | 'div';
+    /** Applied to the *host* element (outside the shadow boundary) - not the SVG inside it, which ordinary page CSS can never reach by design. */
+    className?: string;
+    /** Applied to the *host* element (outside the shadow boundary), same as `className`. */
+    style?: CSSProperties;
 }

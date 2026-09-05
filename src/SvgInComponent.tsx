@@ -1,16 +1,6 @@
 import React from 'react';
 import type { SvgInProps } from './types';
-import { extractSvgAttrs, extractSvgInner, uniquifyIds } from './utils/svgUtils';
-
-/**
- * Minimal HTML-escaping for text inserted into `<title>`/`<desc>` via
- * dangerouslySetInnerHTML. title/description come from the consumer's own
- * code (not the untrusted fetched SVG), so this is about not breaking the
- * surrounding markup on stray `<`/`&`, not sanitization.
- */
-function escapeHtml(text: string): string {
-    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+import { escapeHtml, extractSvgAttrs, extractSvgInner, uniquifyIds } from './utils/svgUtils';
 
 /**
  * Parses the attribute string from the source `<svg>` opening tag and returns

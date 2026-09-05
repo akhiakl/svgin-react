@@ -46,6 +46,17 @@ const BUDGETS_KB_GZIP = {
     'client.js': 3.28,
     'server.js': 3,
     'core.js': 2,
+    // SvgInShadow's own standalone entry - imperative shadow-root rendering
+    // plus the fetch/sanitize plumbing it shares with <SvgIn /> (duplicated
+    // in this bundle since the entries are built independently; the shared
+    // fetchAndSanitizeSvgClient/sanitizeSvgStringClient code is small).
+    'shadow.js': 2.85,
+    // 'all.js' re-exports every client + core export (SvgIn, SvgInSuspense,
+    // SvgInProvider, SvgInShadow, preloadSvg, clearSvgCache, hasCachedSvg)
+    // from one entry, so its budget is a real number tracking real code, but
+    // deliberately looser than the others - it's meant for consumers who've
+    // opted out of minimizing bundle size in favor of one import path.
+    'all.js': 4.4,
 };
 
 const args = process.argv.slice(2);

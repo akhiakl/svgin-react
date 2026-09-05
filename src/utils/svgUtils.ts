@@ -1,4 +1,15 @@
 /**
+ * Minimal HTML-escaping for text inserted into `<title>`/`<desc>` via
+ * dangerouslySetInnerHTML (SvgInComponent) or a shadow root's innerHTML
+ * (SvgInShadow). title/description come from the consumer's own code (not
+ * the untrusted fetched SVG), so this is about not breaking the surrounding
+ * markup on stray `<`/`&`, not sanitization.
+ */
+export function escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
  * Extracts the inner markup of a sanitized `<svg>...</svg>` string, so it can
  * be rendered via `dangerouslySetInnerHTML` inside a React-controlled `<svg>`
  * element (which owns width/height/fill/className/aria-label as normal,
