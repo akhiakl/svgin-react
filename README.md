@@ -27,7 +27,7 @@ Inlining raw SVG markup from a URL you don't fully control is a real security ri
 |                                       | **svgin-react** | react-svg | react-inlinesvg |
 | ------------------------------------- | :--------------: | :-------: | :--------------: |
 | Sanitized by default                  |        ✅         | opt-in only | ❌ none          |
-| Minzipped size (client entry)         |     **~2 KB**     |   ~3.9 KB  |     ~7.8 KB       |
+| Minzipped size (client entry)         |     **~2.7 KB**     |   ~3.8 KB  |     ~7.7 KB       |
 | React Server Components support       |        ✅         |     ❌     |        ❌         |
 | Real React element (not DOM injection)|        ✅         |     ❌     |        ✅         |
 | Forced runtime dependency             |    none (optional peers) | `@tanem/svg-injector` | `react-from-dom` |
@@ -35,7 +35,7 @@ Inlining raw SVG markup from a URL you don't fully control is a real security ri
 | `title` / `desc` accessibility props  |        ✅         |     ✅     |        ✅         |
 | npm provenance (verified build)       |        ✅         |     —      |        —          |
 
-Sizes measured with the same tooling (esbuild, minified, gzipped, `react`/`react-dom` externalized) as this repo's own [bundle-size budget check](scripts/check-bundle-size.mjs) — see [`llms.txt`](llms.txt) for the raw numbers. react-inlinesvg in particular ships with no sanitization option at all, opt-in or otherwise.
+Sizes measured by bundling `{ SvgIn }` (or each alternative's equivalent single import) from source with esbuild - minified, gzipped, `react`/`react-dom`/`react/jsx-runtime` externalized, same tooling as this repo's own [bundle-size budget check](scripts/check-bundle-size.mjs) but tree-shaken down to one import the way a consuming app's bundler would, rather than the whole `svgin-react/client` entry (see [`llms.txt`](llms.txt) for the raw numbers, and re-measure with `esbuild --bundle --minify` against each package's own single-component export if you want to verify - these numbers drift as each package's code changes, most recently up from svgin-react's earlier ~2 KB after adding native SVG/DOM prop forwarding). react-inlinesvg in particular ships with no sanitization option at all, opt-in or otherwise.
 
 ### What about SVGR (`@svgr/core`)?
 
@@ -48,7 +48,7 @@ Sizes measured with the same tooling (esbuild, minified, gzipped, `react`/`react
 | Output                   | A rendered `<svg>` element                | Generated React component **source code**       |
 | Fits SVGs whose content isn't known until runtime (CMS fields, user uploads, a URL from an API response) | ✅ | ❌ - the file has to exist in your project at build time |
 | Sanitizes untrusted markup | ✅ (DOMPurify by default)                 | Not its job - it optimizes/transforms SVGs you already trust as part of your own codebase, it isn't built to run against untrusted input |
-| Runtime bundle cost of the tool itself | ~2 KB (client entry, see above) | None - it's a build-time devDependency, not shipped to the browser |
+| Runtime bundle cost of the tool itself | ~2.7 KB (client entry, see above) | None - it's a build-time devDependency, not shipped to the browser |
 
 If your icons are static files that ship with your app (a logo, a fixed icon set), SVGR is the better fit - it does its work once at build time and adds nothing to your runtime bundle. Reach for svgin-react when the SVG's content isn't known until runtime: fetched from a URL, returned by an API, stored in a database, or otherwise not a file sitting in your repo when you build.
 

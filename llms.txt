@@ -153,13 +153,13 @@ An inline `<style>` block inside a source SVG is not scoped to that SVG - svgin-
 
 ## Comparison to similar packages
 
-Measured with the same tooling (esbuild, minified, gzipped, `react`/`react-dom` externalized) used by this repo's own bundle-size budget check (`scripts/check-bundle-size.mjs`):
+Measured by bundling each package's single equivalent import (`{ SvgIn }`, `{ ReactSVG }`, the `react-inlinesvg` default export) with esbuild - minified, gzipped, `react`/`react-dom`/`react/jsx-runtime` externalized - the way a consuming app's own bundler would tree-shake it, not the whole un-tree-shaken entry file. Re-measure to verify; these drift as each package's code changes (svgin-react's own number moved from ~2 KB after adding native SVG/DOM prop forwarding):
 
 | Package | Minzipped (client entry) | Sanitizes by default | React Server Components |
 |---|---|---|---|
-| `svgin-react` | ~2 KB | yes | yes |
-| `react-svg` | ~3.9 KB | no (opt-in via `beforeInjection`) | no |
-| `react-inlinesvg` | ~7.8 KB | no (no sanitization option at all) | no |
+| `svgin-react` | ~2.7 KB | yes | yes |
+| `react-svg` | ~3.8 KB | no (opt-in via `beforeInjection`) | no |
+| `react-inlinesvg` | ~7.7 KB | no (no sanitization option at all) | no |
 
 `react-svg` injects into the DOM imperatively via a ref (outside React's reconciliation), rather than rendering a real React element tree. Both alternatives require a mandatory runtime dependency (`@tanem/svg-injector`, `react-from-dom` respectively); svgin-react's `dompurify`/`jsdom` are optional peer dependencies, loaded lazily only when the default sanitizer runs.
 
