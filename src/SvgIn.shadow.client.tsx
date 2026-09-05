@@ -26,13 +26,16 @@ import { nextInstanceId } from './utils/instanceId';
  * alongside `<SvgIn />`, and reading from it here would pull this file into
  * every consumer's bundle graph regardless of whether they use it.
  *
+ * Also accepts any other standard `<span>`/`<div>` prop (native props are
+ * forwarded to the *host* element, not the shadow-rendered `<svg>` - see
+ * SvgInShadowProps).
+ *
  * No `loading`/`loadingFallback` (lazy loading and a custom pending state
  * aren't implemented yet - the host element simply renders empty while a
  * fetch is pending, same as before the first resolve or after a rejected
- * one), and no arbitrary native SVG/DOM props: the rendered `<svg>` lives
- * inside a shadow tree owned imperatively by this component (a shadow
- * root's `innerHTML`), not as a React element the usual prop-spreading
- * approach could reach.
+ * one). Any other native prop (`style`, `onClick`, `id`, `role`, `tabIndex`,
+ * `data-*`, native `aria-*`, etc.) is forwarded to the *host* element - see
+ * SvgInShadowProps for why the host rather than the inner `<svg>`.
  */
 export const SvgInShadow: React.FC<SvgInShadowProps> = ({
     src,
@@ -54,6 +57,7 @@ export const SvgInShadow: React.FC<SvgInShadowProps> = ({
     as: Tag = 'span',
     className,
     style,
+    ...rest
 }) => {
     const hostRef = useRef<HTMLElement | null>(null);
     const [svg, setSvg] = useState<string | null>(null);
@@ -143,5 +147,5 @@ export const SvgInShadow: React.FC<SvgInShadowProps> = ({
     // ('span' | 'div'), and JSX's typing for a variable element name can't
     // reconcile a single shared `ref` against per-tag DOM element types the
     // way createElement's looser typing can.
-    return React.createElement(Tag, { ref: hostRef, className, style });
+    return React.createElement(Tag, { ref: hostRef, className, style, ...rest });
 };

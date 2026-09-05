@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode, SVGProps } from 'react';
+import type { CSSProperties, HTMLAttributes, ReactNode, SVGProps } from 'react';
 
 export interface SvgInProps
     extends Omit<
@@ -84,14 +84,24 @@ export interface SvgInProps
  * the fix for the inline-`<style>` scoping limitation documented for
  * `<SvgIn />`/`<SvgInSuspense />` in the README's "Known limitations".
  *
- * Deliberately a smaller prop surface than `SvgInProps`: no `loading`/
- * `loadingFallback` (lazy loading and a custom pending state aren't
- * supported yet - see the README), and no native SVG/DOM props, since the
- * rendered `<svg>` here lives inside a shadow tree this component owns
- * imperatively (via a shadow root's `innerHTML`), not as a React element -
- * `className`/`style` below apply to the *host* element instead.
+ * Deliberately a smaller prop surface than `SvgInProps` in one respect: no
+ * `loading`/`loadingFallback` (lazy loading and a custom pending state
+ * aren't supported yet - see the README). It does accept the same kind of
+ * arbitrary native prop forwarding `SvgInProps` does, but onto the *host*
+ * element (`style`, `onClick`, `id`, `role`, `tabIndex`, `data-*`, native
+ * `aria-*`, etc. - the same set as a plain `<span>`/`<div>`) rather than the
+ * `<svg>` inside it: that `<svg>` lives inside a shadow tree this component
+ * owns imperatively (via a shadow root's `innerHTML`), not as a React
+ * element the usual prop-spreading approach could reach. `width`/`height`/
+ * `fill`/`ariaLabel` below are the exception - forwarded to the inner `<svg>`
+ * same as `SvgInProps`, just listed explicitly since they can't come from
+ * `HTMLAttributes`.
  */
-export interface SvgInShadowProps {
+export interface SvgInShadowProps
+    extends Omit<
+        HTMLAttributes<HTMLElement>,
+        'title' | 'children' | 'dangerouslySetInnerHTML' | 'className' | 'style' | 'onError'
+    > {
     /** URL of the SVG to fetch. Ignored if `svg` is also given. Either `src` or `svg` is required. */
     src?: string;
     /** Raw SVG markup already in hand - sanitized and rendered directly, skipping the fetch step. Takes precedence over `src` if both are given. */

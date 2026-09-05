@@ -180,6 +180,24 @@ describe('SvgInShadow (client component)', () => {
         expect(host).toHaveStyle({ display: 'inline-block' });
     });
 
+    it('forwards arbitrary native props (onClick, role, tabIndex, data-*) to the host element', async () => {
+        mockFetch.mockResolvedValue('<svg><path/></svg>');
+        const onClick = vi.fn();
+        const { container } = render(
+            <SvgInShadow src="/test.svg" onClick={onClick} role="img" tabIndex={0} data-testid="icon-host" />
+        );
+        const host = container.querySelector('span')!;
+        expect(host).toHaveAttribute('role', 'img');
+        expect(host).toHaveAttribute('tabindex', '0');
+        expect(host).toHaveAttribute('data-testid', 'icon-host');
+        host.click();
+        expect(onClick).toHaveBeenCalledTimes(1);
+        // Native props land on the host (light DOM), never inside the
+        // shadow-encapsulated svg - the whole point of the component.
+        await waitFor(() => expect(shadowRoot(host).querySelector('svg')).not.toBeNull());
+        expect(shadowRoot(host).querySelector('svg')).not.toHaveAttribute('role');
+    });
+
     it('passes a closed mode through to attachShadow (hides the shadow tree from host.shadowRoot)', async () => {
         mockFetch.mockResolvedValue('<svg><path/></svg>');
         const onMount = vi.fn();
