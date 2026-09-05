@@ -1,6 +1,6 @@
 {
   "name": "svgin-react",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Securely fetch and inline SVGs from URLs as React components, sanitized by default, with client and server support.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

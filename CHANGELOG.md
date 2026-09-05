@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/). [release-please](https://github.com/googleapis/release-please) generates entries here automatically from Conventional Commits on every release - do not hand-edit below this point.
 
+## [0.11.0](https://github.com/akhiakl/svgin-react/compare/v0.10.0...v0.11.0) (2026-09-05)
+
+
+### Features
+
+* accept and forward arbitrary native SVG/DOM props ([dbbdd66](https://github.com/akhiakl/svgin-react/commit/dbbdd66d4b94a06dbce0f416c458bf05b63a2c33))
+* accept and forward arbitrary native SVG/DOM props ([4327fe9](https://github.com/akhiakl/svgin-react/commit/4327fe9554ad20316bbffaadaa13f0e1e95dd56d))
+
 ## [0.10.0](https://github.com/akhiakl/svgin-react/compare/v0.9.2...v0.10.0) (2026-09-04)
 
 
