@@ -1,23 +1,11 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import type { SvgInProps } from './types';
-import { fetchAndSanitizeSvg, releaseFetchAndSanitizeSvg } from './utils/fetchAndSanitizeSvgClient';
-import { sanitizeSvgString } from './utils/sanitizeSvgStringClient';
+import { releaseFetchAndSanitizeSvg } from './utils/fetchAndSanitizeSvgClient';
+import { resolveSvgPromiseClient } from './utils/resolveSvgPromiseClient';
 import { SvgInComponent } from './SvgInComponent';
 import { nextInstanceId } from './utils/instanceId';
 import { SvgInContext } from './SvgInContext';
 import { useLatestRef } from './utils/useLatestRef';
-
-function resolveSvgPromise(
-    src: string | undefined,
-    svgProp: string | undefined,
-    sanitizeFn: ((svg: string) => Promise<string>) | undefined,
-    disableSanitization: boolean | undefined,
-    fetchOptions: RequestInit | undefined
-): Promise<string> {
-    if (svgProp !== undefined) return sanitizeSvgString(svgProp, { sanitizeFn, disableSanitization });
-    if (src !== undefined) return fetchAndSanitizeSvg(src, { sanitizeFn, disableSanitization, fetchOptions });
-    return Promise.reject(new Error('<SvgIn /> requires either `src` or `svg`.'));
-}
 
 export const SvgIn: React.FC<SvgInProps> = (props) => {
     const defaults = useContext(SvgInContext);
@@ -143,7 +131,7 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
         setError(null);
         const currentSanitizeFn = sanitizeFnRef.current;
         const currentFetchOptions = fetchOptionsRef.current;
-        resolveSvgPromise(src, svgProp, currentSanitizeFn, disableSanitization, currentFetchOptions)
+        resolveSvgPromiseClient('<SvgIn />', src, svgProp, currentSanitizeFn, disableSanitization, currentFetchOptions)
             .then((sanitized) => { if (mounted) setSvg(sanitized); })
             .catch((e) => { if (mounted) { setError(e); onErrorRef.current?.(e); } });
         return () => {

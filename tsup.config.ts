@@ -5,7 +5,9 @@ export default defineConfig({
         'src/client.ts',
         'src/server.ts',
         'src/core.ts',
-        'src/suspense.ts'
+        'src/suspense.ts',
+        'src/shadow.ts',
+        'src/all.ts'
     ],
     format: ['esm', 'cjs'],
     dts: true,

@@ -193,6 +193,32 @@ import { SvgInProvider, SvgIn } from 'svgin-react/client';
 
 Accepts `sanitizeFn`, `disableSanitization`, `fetchOptions`, `fallback`, `loadingFallback`, `className`, `onError`, and `loading`. A prop passed directly to a given `<SvgIn />` always overrides the matching provider default; nested providers override outer ones. Client component only - Context providers require a client boundary in React Server Components, and the async server `<SvgIn />` cannot read context at all. Not read by `<SvgInSuspense />` either, for the same bundle-size reason `<SvgInSuspense />` lives in its own entry point (see above) - depending on the provider's Context module would pull it into every consumer's bundle whether or not they use `<SvgInProvider>`. Unlike `<SvgInSuspense />`, `<SvgInProvider>` stays in `svgin-react/client` rather than getting its own entry: it exists specifically to configure `<SvgIn />`'s defaults, so anyone using it already imports `<SvgIn />` too - splitting it out would add an import with no real bundle-size benefit.
 
+### `<SvgInShadow />` (client component)
+
+```tsx
+import { SvgInShadow } from 'svgin-react/shadow';
+
+<SvgInShadow src="/icons/alert.svg" styles="path { fill: red; }" />
+```
+
+Renders the sanitized SVG inside a [shadow root](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM) attached to a host `<span>` (or `<div>`, via `as="div"`), instead of directly into the light DOM like `<SvgIn />`/`<SvgInSuspense />` do. This gives full style encapsulation in both directions: the page's own CSS can never reach in and affect the SVG (an ancestor's `svg { fill: ... }` rule stops at the shadow boundary), and the new `styles` prop lets you inject CSS - including rules targeting the SVG's own class/id selectors - that's scoped to just this one instance, with zero risk of it leaking onto the rest of the page. This is the fix for the inline-`<style>` scoping limitation described below.
+
+Takes the same `src`/`svg`/`sanitizeFn`/`disableSanitization`/`fetchOptions`/`width`/`height`/`fill`/`ariaLabel`/`title`/`description`/`fallback`/`onError`/`onMount` props as `<SvgIn />` (`onMount` receives the `<svg>` element inside the shadow root). No `loading`/`loadingFallback` yet - the host simply renders empty while a fetch is pending or after a failed one with no `fallback` given.
+
+Any other standard prop (`style`, `onClick`, `id`, `role`, `tabIndex`, `data-*`, native `aria-*`, etc.) is forwarded to the **host** element, not the SVG inside the shadow root - which is exactly the point: the shadow boundary means ordinary page CSS/JS can't reach the SVG's internals anyway, so there'd be nothing meaningful for those props to target there.
+
+```tsx
+<SvgInShadow
+  src="/icons/logo.svg"
+  styles={`
+    :host { display: inline-block; }
+    path { fill: var(--brand-color, currentColor); }
+  `}
+/>
+```
+
+Client-only - Shadow DOM is a browser API, so there is no server-component equivalent. Doesn't read `<SvgInProvider>` defaults, for the same tree-shaking reason `<SvgInSuspense />` doesn't (see above).
+
 ### Lazy loading
 
 ```tsx
@@ -240,6 +266,8 @@ Import from a specific entry point to keep your bundle small:
 - `svgin-react/server`: the server component only.
 - `svgin-react/core`: `preloadSvg`, `clearSvgCache`, `hasCachedSvg`, and shared types only, no React component.
 - `svgin-react/suspense`: `<SvgInSuspense />` only. Kept out of `svgin-react/client` on purpose - see [`<SvgInSuspense />`](#svginsuspense-client-component) above for why.
+- `svgin-react/shadow`: `<SvgInShadow />` only. Kept out of `svgin-react/client` on purpose, for the same reason as `<SvgInSuspense />` above - this package's own build bundles a whole entry file into one physical output regardless of which of its exports you actually use (only a *consuming* app's bundler tree-shakes unused named exports, and only if it's configured to), so importing it from its own entry point guarantees it costs you nothing unless you use it.
+- `svgin-react/all`: every client + core export (`SvgIn`, `SvgInSuspense`, `SvgInProvider`, `SvgInShadow`, `preloadSvg`, `clearSvgCache`, `hasCachedSvg`, all types) behind one import, for when you'd rather not think about which of the above to use and don't mind the larger bundle. Does not include the server component - that would break its own React Server Component/`'use client'` boundary.
 
 ## Security
 
@@ -257,7 +285,9 @@ Import from a specific entry point to keep your bundle small:
 - A class or id selector in that `<style>` block (e.g. `.icon-fill { fill: red; }`) can match same-named elements anywhere else on the page, not only inside the SVG it came from.
 - [`uniquifyIds`](src/utils/svgUtils.ts) (the automatic id-collision handling mentioned above) only rewrites `id="..."` attributes inside the SVG's *inner* markup (its child elements - it's never applied to the outer `<svg>` element itself, which React renders and only forwards source attributes onto) and references to those ids via `url(#id)`, `href="#id"`, or `xlink:href="#id"` - it does not rewrite CSS selectors inside a `<style>` block. For example, a `<style>#gradient-a { stop-color: red; }</style>` rule targeting an inner `<stop id="gradient-a">` by id: `uniquifyIds` suffixes the `id` attribute on that inner `<stop>` element (turning it into e.g. `gradient-a-svgin3`), but the `#gradient-a` selector inside `<style>` is left as-is, so it keeps targeting the *original*, now-nonexistent id - the rule silently stops matching anything. (The outer `<svg>` element's own `id`, if the source SVG had one, is never touched by `uniquifyIds` either way - see above - so a selector targeting that one specifically isn't affected by this.)
 
-If a source SVG uses `<style>` with id/class selectors and you control that source, prefer moving those rules to `fill`/`stroke`/etc. presentation attributes instead (which `uniquifyIds` and normal React styling both handle correctly), or scope the selectors defensively (e.g. a class name unlikely to collide) if you can't avoid `<style>` entirely. There is no prop to auto-scope or strip `<style>` blocks - sanitization removes genuinely unsafe content (`<script>`, event handler attributes, etc.) but intentionally leaves well-formed `<style>` rules in place, since removing them outright would silently break SVGs that rely on them for legitimate styling.
+If a source SVG uses `<style>` with id/class selectors and you control that source, prefer moving those rules to `fill`/`stroke`/etc. presentation attributes instead (which `uniquifyIds` and normal React styling both handle correctly), or scope the selectors defensively (e.g. a class name unlikely to collide) if you can't avoid `<style>` entirely. There is no prop on `<SvgIn />`/`<SvgInSuspense />` to auto-scope or strip `<style>` blocks - sanitization removes genuinely unsafe content (`<script>`, event handler attributes, etc.) but intentionally leaves well-formed `<style>` rules in place, since removing them outright would silently break SVGs that rely on them for legitimate styling.
+
+If this limitation actually matters for your SVGs, reach for [`<SvgInShadow />`](#svginshadow-client-component) instead: it renders inside a shadow root, so a `<style>` block (the SVG's own, or one you pass via its `styles` prop) is fully scoped to that one instance in both directions - no selector-rewriting trick needed.
 
 ## Examples
 

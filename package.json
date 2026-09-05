@@ -39,6 +39,14 @@
     "./suspense": {
       "import": "./dist/suspense.js",
       "require": "./dist/suspense.js"
+    },
+    "./shadow": {
+      "import": "./dist/shadow.js",
+      "require": "./dist/shadow.js"
+    },
+    "./all": {
+      "import": "./dist/all.js",
+      "require": "./dist/all.js"
     }
   },
   "peerDependencies": {
