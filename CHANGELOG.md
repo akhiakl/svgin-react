@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/). [release-please](https://github.com/googleapis/release-please) generates entries here automatically from Conventional Commits on every release - do not hand-edit below this point.
 
+## [1.0.1](https://github.com/akhiakl/svgin-react/compare/v1.0.0...v1.0.1) (2026-09-05)
+
+
+### Documentation
+
+* address Copilot review feedback on PR [#64](https://github.com/akhiakl/svgin-react/issues/64) ([c0513bf](https://github.com/akhiakl/svgin-react/commit/c0513bf8c97250058e8d3acbb9a8ff250730742a))
+* link to external SVG/HTML attribute references from prop tables ([2604360](https://github.com/akhiakl/svgin-react/commit/26043600bedfa8c53385f9e4e31f90b9243ce4e1))
+* make README developer-friendly, split reference into docs/ ([e704af9](https://github.com/akhiakl/svgin-react/commit/e704af92e82aaf266db3521000cf44235c6acf11))
+* make README developer-friendly, split reference into docs/ ([4ee8309](https://github.com/akhiakl/svgin-react/commit/4ee83093aaebf9fb69feb519432da20cba52e12b))
+
 ## [1.0.0](https://github.com/akhiakl/svgin-react/compare/v0.10.0...v1.0.0) (2026-09-05)
 
 
