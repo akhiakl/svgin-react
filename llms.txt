@@ -168,9 +168,12 @@ Measured by bundling each package's single equivalent import (`{ SvgIn }`, `{ Re
 
 ## Docs
 
-- [README.md](https://github.com/akhiakl/svgin-react/blob/main/README.md): install, usage, full API reference.
+- [README.md](https://github.com/akhiakl/svgin-react/blob/main/README.md): install, quick start, common use cases.
+- [docs/api.md](https://github.com/akhiakl/svgin-react/blob/main/docs/api.md): complete props and exports for every component and entry point.
+- [docs/advanced.md](https://github.com/akhiakl/svgin-react/blob/main/docs/advanced.md): identity/caching semantics, cancellation, Suspense retry behavior, known limitations, package comparisons.
 - [SECURITY.md](https://github.com/akhiakl/svgin-react/blob/main/SECURITY.md): how to report a vulnerability.
 - [CONTRIBUTING.md](https://github.com/akhiakl/svgin-react/blob/main/CONTRIBUTING.md): how to make a change and open a pull request.
+- [docs/maintainers.md](https://github.com/akhiakl/svgin-react/blob/main/docs/maintainers.md): the release process.
 - [CHANGELOG.md](https://github.com/akhiakl/svgin-react/blob/main/CHANGELOG.md): what changed between versions.
 
 ## Source layout
