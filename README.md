@@ -27,7 +27,7 @@ Inlining raw SVG markup from a URL you don't fully control is a real security ri
 |                                       | **svgin-react** | react-svg | react-inlinesvg |
 | ------------------------------------- | :--------------: | :-------: | :--------------: |
 | Sanitized by default                  |        ✅         | opt-in only | ❌ none          |
-| Minzipped size (client entry)         |     **~2.7 KB**     |   ~3.8 KB  |     ~7.7 KB       |
+| Minzipped size (single `SvgIn`/equivalent import, tree-shaken) |     **~2.7 KB**     |   ~3.8 KB  |     ~7.7 KB       |
 | React Server Components support       |        ✅         |     ❌     |        ❌         |
 | Real React element (not DOM injection)|        ✅         |     ❌     |        ✅         |
 | Forced runtime dependency             |    none (optional peers) | `@tanem/svg-injector` | `react-from-dom` |
@@ -35,7 +35,7 @@ Inlining raw SVG markup from a URL you don't fully control is a real security ri
 | `title` / `desc` accessibility props  |        ✅         |     ✅     |        ✅         |
 | npm provenance (verified build)       |        ✅         |     —      |        —          |
 
-Sizes measured by bundling `{ SvgIn }` (or each alternative's equivalent single import) from source with esbuild - minified, gzipped, `react`/`react-dom`/`react/jsx-runtime` externalized, same tooling as this repo's own [bundle-size budget check](scripts/check-bundle-size.mjs) but tree-shaken down to one import the way a consuming app's bundler would, rather than the whole `svgin-react/client` entry (see [`llms.txt`](llms.txt) for the raw numbers, and re-measure with `esbuild --bundle --minify` against each package's own single-component export if you want to verify - these numbers drift as each package's code changes, most recently up from svgin-react's earlier ~2 KB after adding native SVG/DOM prop forwarding). react-inlinesvg in particular ships with no sanitization option at all, opt-in or otherwise.
+Sizes measured by bundling `{ SvgIn }` (or each alternative's equivalent single import) from source with esbuild - minified, gzipped, `react`/`react-dom`/`react/jsx-runtime` externalized, the way a consuming app's own bundler would tree-shake it, not the whole un-tree-shaken entry file. See [`llms.txt`](llms.txt) for the raw numbers, and re-measure with `esbuild --bundle --minify` against each package's own single-component export to verify - these drift as each package's code changes. react-inlinesvg in particular ships with no sanitization option at all, opt-in or otherwise.
 
 ### What about SVGR (`@svgr/core`)?
 
@@ -48,7 +48,7 @@ Sizes measured by bundling `{ SvgIn }` (or each alternative's equivalent single 
 | Output                   | A rendered `<svg>` element                | Generated React component **source code**       |
 | Fits SVGs whose content isn't known until runtime (CMS fields, user uploads, a URL from an API response) | ✅ | ❌ - the file has to exist in your project at build time |
 | Sanitizes untrusted markup | ✅ (DOMPurify by default)                 | Not its job - it optimizes/transforms SVGs you already trust as part of your own codebase, it isn't built to run against untrusted input |
-| Runtime bundle cost of the tool itself | ~2.7 KB (client entry, see above) | None - it's a build-time devDependency, not shipped to the browser |
+| Runtime bundle cost of the tool itself | ~2.7 KB (tree-shaken single import, see above) | None - it's a build-time devDependency, not shipped to the browser |
 
 If your icons are static files that ship with your app (a logo, a fixed icon set), SVGR is the better fit - it does its work once at build time and adds nothing to your runtime bundle. Reach for svgin-react when the SVG's content isn't known until runtime: fetched from a URL, returned by an API, stored in a database, or otherwise not a file sitting in your repo when you build.
 
@@ -144,7 +144,7 @@ await preloadSvg('/icons/alert.svg', {
 
 Any other standard SVG/DOM prop (`style`, `onClick`, `role`, `tabIndex`, `stroke`, `strokeWidth`, `data-*`, native `aria-*`, etc.) is also accepted and forwarded to the rendered `<svg>` element, same as on a plain `<svg>` tag - `<SvgInProps>` extends `React.SVGProps<SVGSVGElement>` for everything not already listed above with its own meaning.
 
-Need Suspense instead? See [`<SvgInSuspense />`](#svginsuspense-client-component) below - it's a separate component rather than a prop on `<SvgIn />`, specifically so a bundler can drop it entirely for consumers who never import it.
+Need Suspense instead? See [`<SvgInSuspense />`](#svginsuspense-client-component) below - it's a separate component (imported from its own `svgin-react/suspense` entry point, not `svgin-react/client`) rather than a prop on `<SvgIn />`, specifically so it costs nothing to consumers who never import it.
 
 Source SVG attributes (`viewBox`, `preserveAspectRatio`, `xmlns`, etc.) are automatically forwarded from the fetched SVG to the rendered element. Explicit props (`width`, `height`, `fill`, `className`, `ariaLabel`, and any other native SVG prop you pass) always take precedence.
 
@@ -163,7 +163,7 @@ Same props as above, except `onMount` and `loading` are no-ops (there is no DOM 
 ### `<SvgInSuspense />` (client component)
 
 ```tsx
-import { SvgInSuspense } from 'svgin-react/client';
+import { SvgInSuspense } from 'svgin-react/suspense';
 
 <Suspense fallback={<IconSkeleton />}>
   <SvgInSuspense src="/icons/alert.svg" />
@@ -174,7 +174,7 @@ Suspends via React 19's `use()` instead of managing its own loading/error state.
 
 **A failed `src`/`svg` combination stays failed:** once a given `src` (or `svg`) + `sanitizeFn` + `disableSanitization` + `fetchOptions` combination rejects, `<SvgInSuspense />` keeps throwing that same rejection to the error boundary on every subsequent render with those exact props - it does not silently retry, even if the underlying resource becomes available later. This is deliberate: `use()` requires a stable promise per render, and a component that re-fetched on every render would suspend forever against a URL that fails consistently (this used to be a real bug - a persistently-failing fetch caused an unbounded retry loop, never reaching the error boundary). To retry, change one of those props - e.g. append a cache-busting query string to `src` - or point your "Retry" UI at that.
 
-**Why a separate component instead of a `suspense` prop on `<SvgIn />`:** a boolean prop decided at render time can never be tree-shaken out of a bundler's output, even for an app that never sets it - the branch is still reachable code inside the one component everyone imports. A wholly separate export *can* be dropped by any bundler that tree-shakes ESM (which is most of them) if a given app never imports it. Measured with `SvgIn`'s own module graph via esbuild (minified, gzipped, `react` externalized): a bundle importing only `{ SvgIn }` is measurably smaller than one importing `{ SvgIn, SvgInSuspense }` together - importing `SvgInSuspense` only costs you something if you actually use it.
+**Why a separate component (and its own entry point) instead of a `suspense` prop on `<SvgIn />`:** a boolean prop decided at render time can never be tree-shaken out of a bundler's output, even for an app that never sets it - the branch is still reachable code inside the one component everyone imports. A wholly separate export *can* be dropped by any bundler that tree-shakes ESM (which is most of them) if a given app never imports it. It's also kept out of `svgin-react/client` specifically (rather than re-exported there alongside `<SvgIn />`): this package's own build bundles a whole entry file into one physical output regardless of which of its exports you actually use, so re-exporting it from `client.ts` would cost every `svgin-react/client` consumer something whether or not they use Suspense mode - measured at roughly 9% of `client.js`'s own size. Importing it from `svgin-react/suspense` instead guarantees it costs you nothing unless you use it.
 
 The server component needs no equivalent - it's already Suspense-friendly for free, since it's a plain `async` function component; wrapping its usage in `<Suspense fallback={...}>` just works.
 
@@ -191,7 +191,7 @@ import { SvgInProvider, SvgIn } from 'svgin-react/client';
 </SvgInProvider>
 ```
 
-Accepts `sanitizeFn`, `disableSanitization`, `fetchOptions`, `fallback`, `loadingFallback`, `className`, `onError`, and `loading`. A prop passed directly to a given `<SvgIn />` always overrides the matching provider default; nested providers override outer ones. Client component only - Context providers require a client boundary in React Server Components, and the async server `<SvgIn />` cannot read context at all. Not read by `<SvgInSuspense />` either, for the same bundle-size reason it isn't a prop on `<SvgIn />` (see above) - depending on the provider's Context module would pull it into every consumer's bundle whether or not they use `<SvgInProvider>`.
+Accepts `sanitizeFn`, `disableSanitization`, `fetchOptions`, `fallback`, `loadingFallback`, `className`, `onError`, and `loading`. A prop passed directly to a given `<SvgIn />` always overrides the matching provider default; nested providers override outer ones. Client component only - Context providers require a client boundary in React Server Components, and the async server `<SvgIn />` cannot read context at all. Not read by `<SvgInSuspense />` either, for the same bundle-size reason `<SvgInSuspense />` lives in its own entry point (see above) - depending on the provider's Context module would pull it into every consumer's bundle whether or not they use `<SvgInProvider>`. Unlike `<SvgInSuspense />`, `<SvgInProvider>` stays in `svgin-react/client` rather than getting its own entry: it exists specifically to configure `<SvgIn />`'s defaults, so anyone using it already imports `<SvgIn />` too - splitting it out would add an import with no real bundle-size benefit.
 
 ### `<SvgInShadow />` (client component)
 
@@ -262,10 +262,11 @@ Both only see the same shared cache `<SvgIn src={url} />` (with no `sanitizeFn`/
 Import from a specific entry point to keep your bundle small:
 
 - `svgin-react`: resolves to the server component in a React Server Components environment (via the `react-server` export condition), and to the client component everywhere else.
-- `svgin-react/client`: `<SvgIn />`, `<SvgInSuspense />`, `<SvgInProvider>`.
+- `svgin-react/client`: `<SvgIn />` and `<SvgInProvider>`.
 - `svgin-react/server`: the server component only.
 - `svgin-react/core`: `preloadSvg`, `clearSvgCache`, `hasCachedSvg`, and shared types only, no React component.
-- `svgin-react/shadow`: `<SvgInShadow />` only. Kept out of `svgin-react/client` on purpose - `<SvgInShadow />` is a bit more code than `<SvgInSuspense />`/`<SvgInProvider>`, and this package's own build bundles a whole entry file into one physical output regardless of which of its exports you actually use (only a *consuming* app's bundler tree-shakes unused named exports, and only if it's configured to) - so importing it from its own entry point guarantees it costs you nothing unless you use it.
+- `svgin-react/suspense`: `<SvgInSuspense />` only. Kept out of `svgin-react/client` on purpose - see [`<SvgInSuspense />`](#svginsuspense-client-component) above for why.
+- `svgin-react/shadow`: `<SvgInShadow />` only. Kept out of `svgin-react/client` on purpose, for the same reason as `<SvgInSuspense />` above - this package's own build bundles a whole entry file into one physical output regardless of which of its exports you actually use (only a *consuming* app's bundler tree-shakes unused named exports, and only if it's configured to), so importing it from its own entry point guarantees it costs you nothing unless you use it.
 - `svgin-react/all`: every client + core export (`SvgIn`, `SvgInSuspense`, `SvgInProvider`, `SvgInShadow`, `preloadSvg`, `clearSvgCache`, `hasCachedSvg`, all types) behind one import, for when you'd rather not think about which of the above to use and don't mind the larger bundle. Does not include the server component - that would break its own React Server Component/`'use client'` boundary.
 
 ## Security

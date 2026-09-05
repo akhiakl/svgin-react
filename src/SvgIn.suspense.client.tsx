@@ -5,6 +5,7 @@ import { sanitizeSvgString } from './utils/sanitizeSvgStringClient';
 import { SvgInComponent } from './SvgInComponent';
 import { nextInstanceId } from './utils/instanceId';
 import { stableKey } from './utils/universalCache';
+import { useLatestRef } from './utils/useLatestRef';
 
 // Tracks which (promise, onError) pairs have already been notified, keyed at
 // module scope rather than per-component-instance: when use() throws a
@@ -146,8 +147,7 @@ export const SvgInSuspense: React.FC<Omit<SvgInProps, 'fallback' | 'loadingFallb
     const idSuffix = useRef<string | undefined>(undefined);
     if (idSuffix.current === undefined) idSuffix.current = nextInstanceId();
     const svgRef = useRef<SVGSVGElement>(null);
-    const onMountRef = useRef(onMount);
-    onMountRef.current = onMount;
+    const onMountRef = useLatestRef(onMount);
 
     const promise = resolvePromise(src, svgProp, sanitizeFn, disableSanitization, fetchOptions);
     // A side-channel notification only: subscribing a .catch() handler does

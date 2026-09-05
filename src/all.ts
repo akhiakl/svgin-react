@@ -14,12 +14,14 @@
 // package: it pulls in strictly more code than most consumers need (offset
 // only by whatever a bundler still manages to tree-shake), in exchange for
 // a single, unambiguous import path. Prefer 'svgin-react/client',
-// 'svgin-react/server', 'svgin-react/core', or 'svgin-react/shadow'
-// individually if bundle size matters to you.
+// 'svgin-react/server', 'svgin-react/core', 'svgin-react/suspense', or
+// 'svgin-react/shadow' individually if bundle size matters to you.
 export * from './client';
 export * from './core';
-// Named re-export (not `export *`) for the value only: `./core`'s
-// `export * from './types'` already re-exports the SvgInShadowProps type,
-// so `export *`-ing './shadow' too would re-export that same type a second
-// time and collide.
+// Named re-exports (not `export *`) for the values only: `./core`'s
+// `export * from './types'` already re-exports SvgInShadowProps, so
+// `export *`-ing './shadow' too would re-export that same type a second
+// time and collide. './suspense' has no type of its own to collide with,
+// but kept as a named re-export too for consistency with './shadow'.
+export { SvgInSuspense } from './suspense';
 export { SvgInShadow } from './shadow';
