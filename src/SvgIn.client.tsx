@@ -1,22 +1,11 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import type { SvgInProps } from './types';
-import { fetchAndSanitizeSvg, releaseFetchAndSanitizeSvg } from './utils/fetchAndSanitizeSvgClient';
-import { sanitizeSvgString } from './utils/sanitizeSvgStringClient';
+import { releaseFetchAndSanitizeSvg } from './utils/fetchAndSanitizeSvgClient';
+import { resolveSvgPromiseClient } from './utils/resolveSvgPromiseClient';
 import { SvgInComponent } from './SvgInComponent';
 import { nextInstanceId } from './utils/instanceId';
 import { SvgInContext } from './SvgInContext';
-
-function resolveSvgPromise(
-    src: string | undefined,
-    svgProp: string | undefined,
-    sanitizeFn: ((svg: string) => Promise<string>) | undefined,
-    disableSanitization: boolean | undefined,
-    fetchOptions: RequestInit | undefined
-): Promise<string> {
-    if (svgProp !== undefined) return sanitizeSvgString(svgProp, { sanitizeFn, disableSanitization });
-    if (src !== undefined) return fetchAndSanitizeSvg(src, { sanitizeFn, disableSanitization, fetchOptions });
-    return Promise.reject(new Error('<SvgIn /> requires either `src` or `svg`.'));
-}
+import { useLatestRef } from './utils/useLatestRef';
 
 export const SvgIn: React.FC<SvgInProps> = (props) => {
     const defaults = useContext(SvgInContext);
@@ -54,10 +43,8 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
     // Read from refs rather than depended on directly, same reasoning as
     // sanitizeFnRef below: consumers commonly pass fresh inline closures,
     // and depending on their identity would re-run effects unnecessarily.
-    const onErrorRef = useRef(onError);
-    onErrorRef.current = onError;
-    const onMountRef = useRef(onMount);
-    onMountRef.current = onMount;
+    const onErrorRef = useLatestRef(onError);
+    const onMountRef = useLatestRef(onMount);
 
     // sanitizeFn is read from a ref rather than depended on directly:
     // consumers commonly pass an inline arrow function, whose identity
@@ -73,8 +60,7 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
     // README's "sanitizeFn identity note"). If the sanitizer's behavior
     // needs to change at runtime, change the src prop or remount the
     // component to force a refresh - there is no dedicated prop for this.
-    const sanitizeFnRef = useRef(sanitizeFn);
-    sanitizeFnRef.current = sanitizeFn;
+    const sanitizeFnRef = useLatestRef(sanitizeFn);
     const hasSanitizeFn = sanitizeFn !== undefined;
 
     // Same reasoning and the same tradeoff as sanitizeFnRef above: a fresh
@@ -87,8 +73,7 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
     // though changing the *contents* of an already-present fetchOptions is
     // not (same limitation as sanitizeFn: change src, or remount, to force
     // a refetch with new header values).
-    const fetchOptionsRef = useRef(fetchOptions);
-    fetchOptionsRef.current = fetchOptions;
+    const fetchOptionsRef = useLatestRef(fetchOptions);
     // fetchOptions only affects anything on the `src` (fetch) path - when
     // `svg` is given instead, resolveSvgPromise never reaches fetchOptions
     // at all, so its presence toggling must not trigger a re-sanitize there.
@@ -146,7 +131,7 @@ export const SvgIn: React.FC<SvgInProps> = (props) => {
         setError(null);
         const currentSanitizeFn = sanitizeFnRef.current;
         const currentFetchOptions = fetchOptionsRef.current;
-        resolveSvgPromise(src, svgProp, currentSanitizeFn, disableSanitization, currentFetchOptions)
+        resolveSvgPromiseClient('<SvgIn />', src, svgProp, currentSanitizeFn, disableSanitization, currentFetchOptions)
             .then((sanitized) => { if (mounted) setSvg(sanitized); })
             .catch((e) => { if (mounted) { setError(e); onErrorRef.current?.(e); } });
         return () => {

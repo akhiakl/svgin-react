@@ -43,9 +43,38 @@ const BUDGETS_KB_GZIP = {
     // which fixed the bug, removed the need for signal-combining code
     // entirely, and left the client bundle smaller than the 3.3/3.4 KB
     // intermediate bumps this comment used to describe.
-    'client.js': 3.28,
+    //
+    // Lowered from 3.28 to 3: <SvgInSuspense /> moved out to its own
+    // 'svgin-react/suspense' entry (a breaking change - see CHANGELOG),
+    // since it's a genuinely standalone rendering strategy that doesn't
+    // read <SvgInProvider>'s Context at all, unlike <SvgInProvider> itself
+    // (which stays here - it exists specifically to configure <SvgIn />,
+    // so anyone using it already pulls <SvgIn /> in anyway). This is what
+    // actually moves the number tools like Bundlephobia report for a plain
+    // `import { SvgIn } from 'svgin-react'` - tree-shaking already made
+    // this a non-issue for consumers with a real bundler, but this
+    // package's own build doesn't tree-shake within one entry file, so the
+    // *published, unbundled* measurement (what Bundlephobia and this exact
+    // check see) always included <SvgInSuspense />'s code before this.
+    'client.js': 3,
     'server.js': 3,
     'core.js': 2,
+    // <SvgInSuspense /> standalone - duplicates the small amount of
+    // fetch/sanitize plumbing it shares with <SvgIn /> (each entry is
+    // built independently), plus its own promise-pinning/error-dedup
+    // bookkeeping (see SvgIn.suspense.client.tsx).
+    'suspense.js': 2.7,
+    // SvgInShadow's own standalone entry - imperative shadow-root rendering
+    // plus the fetch/sanitize plumbing it shares with <SvgIn /> (duplicated
+    // in this bundle since the entries are built independently; the shared
+    // fetchAndSanitizeSvgClient/sanitizeSvgStringClient code is small).
+    'shadow.js': 2.85,
+    // 'all.js' re-exports every client + core export (SvgIn, SvgInSuspense,
+    // SvgInProvider, SvgInShadow, preloadSvg, clearSvgCache, hasCachedSvg)
+    // from one entry, so its budget is a real number tracking real code, but
+    // deliberately looser than the others - it's meant for consumers who've
+    // opted out of minimizing bundle size in favor of one import path.
+    'all.js': 4.4,
 };
 
 const args = process.argv.slice(2);
