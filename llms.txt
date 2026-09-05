@@ -9,7 +9,7 @@ svgin-react solves one specific problem: you have an SVG at a URL (not bundled i
 - Package name on npm: `svgin-react`.
 - React 19+ required. Works with Next.js, Remix, Vite, CRA, Astro, and plain Node SSR.
 - Main export `SvgIn` auto-resolves to a client or server component depending on where it is imported from.
-- `svgin-react/client`, `svgin-react/server`, and `svgin-react/core` are separate entry points for tree-shaking.
+- `svgin-react/client`, `svgin-react/server`, `svgin-react/core`, and `svgin-react/suspense` are separate entry points for tree-shaking.
 - Sanitization is on by default. It can be replaced with a custom `sanitizeFn` prop, or turned off with `disableSanitization` for fully trusted SVGs.
 - `dompurify` (and, for the server entry point, `jsdom`) are optional peer dependencies, only required if you use the default sanitizer.
 - Source SVG attributes (`viewBox`, `preserveAspectRatio`, `xmlns`, etc.) are automatically forwarded from the fetched SVG to the rendered element. Explicit props (`width`, `height`, `fill`, `className`, `ariaLabel`, and any other native SVG prop) always take precedence.
@@ -21,7 +21,7 @@ svgin-react solves one specific problem: you have an SVG at a URL (not bundled i
 - `onError` fires with the actual `Error` when a fetch or sanitization fails. `onMount` (client component only) fires with the rendered `SVGSVGElement` right after it mounts or updates.
 - A `svg` prop accepts raw SVG markup you already have (a CMS field, an API response) - sanitized and rendered directly, skipping the fetch. Takes precedence over `src` if both are given.
 - `<SvgInProvider>` (client, from `svgin-react/client`) sets shared defaults (`sanitizeFn`, `disableSanitization`, `fetchOptions`, `fallback`, `loadingFallback`, `className`, `onError`, `loading`) for every `<SvgIn />` beneath it; an explicit prop on a given `<SvgIn />` always overrides the provider default.
-- `<SvgInSuspense>` (client, from `svgin-react/client`) is a separate component, not a prop on `<SvgIn />`, that suspends via React 19's `use()` instead of managing its own loading/error state - pair with a `<Suspense>` boundary and an error boundary. It's a separate export specifically so a bundler can tree-shake it out entirely for consumers who never import it (a boolean prop on the shared `<SvgIn />` could never be removed that way, since the branch stays reachable from code every consumer uses). The server component needs no equivalent - it's already Suspense-friendly on its own (a plain async component).
+- `<SvgInSuspense>` (client, from `svgin-react/suspense` - NOT `svgin-react/client`, as of the next major version) is a separate component, not a prop on `<SvgIn />`, that suspends via React 19's `use()` instead of managing its own loading/error state - pair with a `<Suspense>` boundary and an error boundary. It's a separate export/entry point specifically so it costs nothing to consumers who never import it (a boolean prop on the shared `<SvgIn />` could never be tree-shaken that way, since the branch stays reachable from code every consumer uses; kept out of `svgin-react/client` specifically because this package's own build bundles a whole entry file into one physical output regardless of which exports are actually used). The server component needs no equivalent - it's already Suspense-friendly on its own (a plain async component).
 - `loading="lazy"` (client component only) defers the fetch until the placeholder scrolls near the viewport, via `IntersectionObserver`.
 - `loadingFallback` (client component only) renders custom UI while the fetch/sanitize is pending, instead of the default `aria-hidden` placeholder `<svg>`.
 - The client `<SvgIn />` cancels its underlying fetch when it unmounts, or when the fetch key changes (`src`/`disableSanitization`, or `sanitizeFn`/`fetchOptions` toggling between absent and present - presence, not identity/content, is what's tracked, same as the sanitizeFn identity note) before the previous fetch resolves. Cancellation is reference-counted: if multiple mounted `<SvgIn />` instances share the same in-flight fetch (same `src`/`sanitizeFn`/`disableSanitization`/`fetchOptions`), it is only actually aborted once every one of them has unmounted or moved on - unmounting one instance never cancels a fetch another instance still needs. A `signal` inside `fetchOptions` (your own timeout logic, say) firing has the same effect as that caller unmounting - it releases only that caller's own share, never unilaterally aborting a fetch another concurrent caller with an identical key still needs. Nothing to configure. `<SvgInSuspense />`, the server component, and `preloadSvg` don't participate in cancellation (nothing to cancel from), but still share the same in-flight-request deduplication.
@@ -132,7 +132,8 @@ Both only see the shared cache (default-mode `src`/`preloadSvg` calls, no `sanit
 | Import | Exports | Bundle impact |
 |---|---|---|
 | `svgin-react` | `SvgIn` (auto: server in RSC, client elsewhere) | Minimal |
-| `svgin-react/client` | `SvgIn`, `SvgInSuspense`, `SvgInProvider` (client only) | No jsdom; `SvgInSuspense`/`SvgInProvider` are separate exports a bundler drops if unused |
+| `svgin-react/client` | `SvgIn`, `SvgInProvider` (client only) | No jsdom |
+| `svgin-react/suspense` | `SvgInSuspense` (client only) | Its own entry so it costs nothing to `svgin-react/client` consumers who don't use it |
 | `svgin-react/server` | `SvgIn` (server only) | Requires dompurify + jsdom |
 | `svgin-react/core` | `preloadSvg`, `clearSvgCache`, `hasCachedSvg`, types | No React component |
 
@@ -149,13 +150,13 @@ An inline `<style>` block inside a source SVG is not scoped to that SVG - svgin-
 
 ## Comparison to similar packages
 
-Measured with the same tooling (esbuild, minified, gzipped, `react`/`react-dom` externalized) used by this repo's own bundle-size budget check (`scripts/check-bundle-size.mjs`):
+Measured by bundling each package's single equivalent import (`{ SvgIn }`, `{ ReactSVG }`, the `react-inlinesvg` default export) with esbuild - minified, gzipped, `react`/`react-dom`/`react/jsx-runtime` externalized - the way a consuming app's own bundler would tree-shake it, not the whole un-tree-shaken entry file. Re-measure to verify; these drift as each package's code changes:
 
-| Package | Minzipped (client entry) | Sanitizes by default | React Server Components |
+| Package | Minzipped (single equivalent import, tree-shaken) | Sanitizes by default | React Server Components |
 |---|---|---|---|
-| `svgin-react` | ~2 KB | yes | yes |
-| `react-svg` | ~3.9 KB | no (opt-in via `beforeInjection`) | no |
-| `react-inlinesvg` | ~7.8 KB | no (no sanitization option at all) | no |
+| `svgin-react` | ~2.7 KB | yes | yes |
+| `react-svg` | ~3.8 KB | no (opt-in via `beforeInjection`) | no |
+| `react-inlinesvg` | ~7.7 KB | no (no sanitization option at all) | no |
 
 `react-svg` injects into the DOM imperatively via a ref (outside React's reconciliation), rather than rendering a real React element tree. Both alternatives require a mandatory runtime dependency (`@tanem/svg-injector`, `react-from-dom` respectively); svgin-react's `dompurify`/`jsdom` are optional peer dependencies, loaded lazily only when the default sanitizer runs.
 
@@ -171,7 +172,8 @@ Measured with the same tooling (esbuild, minified, gzipped, `react`/`react-dom` 
 ## Source layout
 
 - `src/SvgIn.client.tsx` — client `<SvgIn />` component: stateful (`useEffect` + state) implementation
-- `src/SvgIn.suspense.client.tsx` — `<SvgInSuspense />`: a separate `use()`-based Suspense implementation, kept out of `SvgIn.client.tsx`'s own code path on purpose so a bundler can tree-shake it out for consumers who never import it
+- `src/SvgIn.suspense.client.tsx` — `<SvgInSuspense />`: a separate `use()`-based Suspense implementation, exported from its own `src/suspense.ts` entry (not `client.ts`) since this package's own build doesn't tree-shake within one entry file
+- `src/utils/useLatestRef.ts` — shared `useRef`-that-tracks-the-latest-value helper, used by `SvgIn.client.tsx` and `SvgIn.suspense.client.tsx` for their onError/onMount/sanitizeFn/fetchOptions refs
 - `src/SvgIn.server.tsx` — server component (async function)
 - `src/SvgInComponent.tsx` — shared pure rendering component
 - `src/SvgInContext.ts`, `src/SvgInProvider.tsx` — `<SvgInProvider>` and its Context
