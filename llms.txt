@@ -12,7 +12,8 @@ svgin-react solves one specific problem: you have an SVG at a URL (not bundled i
 - `svgin-react/client`, `svgin-react/server`, and `svgin-react/core` are separate entry points for tree-shaking.
 - Sanitization is on by default. It can be replaced with a custom `sanitizeFn` prop, or turned off with `disableSanitization` for fully trusted SVGs.
 - `dompurify` (and, for the server entry point, `jsdom`) are optional peer dependencies, only required if you use the default sanitizer.
-- Source SVG attributes (`viewBox`, `preserveAspectRatio`, `xmlns`, etc.) are automatically forwarded from the fetched SVG to the rendered element. Explicit props (`width`, `height`, `fill`, `className`, `ariaLabel`) always take precedence.
+- Source SVG attributes (`viewBox`, `preserveAspectRatio`, `xmlns`, etc.) are automatically forwarded from the fetched SVG to the rendered element. Explicit props (`width`, `height`, `fill`, `className`, `ariaLabel`, and any other native SVG prop) always take precedence.
+- `<SvgInProps>` accepts any other standard SVG/DOM prop too (`style`, `onClick`, `role`, `tabIndex`, `stroke`, `strokeWidth`, `data-*`, native `aria-*`, etc. - the same set as a plain `<svg>` tag), forwarded to the rendered element after the source SVG's own attributes.
 - The in-memory cache for pending/resolved fetches automatically evicts rejected promises so transient errors are retried on the next render.
 - The fetch rejects early on unexpected `Content-Type` responses (e.g. `text/html`) to avoid processing non-SVG content.
 - Internal ids (`<linearGradient>`, `<clipPath>`, `<mask>`, `<filter>`, etc.) are automatically made unique per rendered instance, so multiple copies of the same icon on one page never collide over a shared definition.

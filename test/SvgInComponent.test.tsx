@@ -36,6 +36,32 @@ describe('SvgInComponent', () => {
         expect(svg).toHaveAttribute('aria-label', 'alert');
     });
 
+    it('forwards arbitrary native SVG/DOM props (style, onClick, role, tabIndex, data-*) to the rendered element', () => {
+        const onClick = () => {};
+        const { container } = render(
+            <SvgInComponent
+                svg={'<svg><path d="M0 0"/></svg>'}
+                style={{ color: 'red' }}
+                onClick={onClick}
+                role="img"
+                tabIndex={0}
+                data-testid="icon"
+            />
+        );
+        const svg = container.querySelector('svg');
+        expect(svg).toHaveStyle({ color: 'rgb(255, 0, 0)' });
+        expect(svg).toHaveAttribute('role', 'img');
+        expect(svg).toHaveAttribute('tabindex', '0');
+        expect(svg).toHaveAttribute('data-testid', 'icon');
+    });
+
+    it('lets an explicit native SVG prop override the same attribute on the source svg', () => {
+        const { container } = render(
+            <SvgInComponent svg={'<svg role="presentation"><path d="M0 0"/></svg>'} role="img" />
+        );
+        expect(container.querySelector('svg')).toHaveAttribute('role', 'img');
+    });
+
     it('returns null when the svg string is malformed', () => {
         const { container } = render(<SvgInComponent svg={'<div>not svg</div>'} />);
         expect(container.firstChild).toBeNull();
