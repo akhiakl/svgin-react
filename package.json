@@ -35,6 +35,10 @@
     "./core": {
       "import": "./dist/core.js",
       "require": "./dist/core.js"
+    },
+    "./suspense": {
+      "import": "./dist/suspense.js",
+      "require": "./dist/suspense.js"
     }
   },
   "peerDependencies": {

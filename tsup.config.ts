@@ -4,7 +4,8 @@ export default defineConfig({
     entry: [
         'src/client.ts',
         'src/server.ts',
-        'src/core.ts'
+        'src/core.ts',
+        'src/suspense.ts'
     ],
     format: ['esm', 'cjs'],
     dts: true,
