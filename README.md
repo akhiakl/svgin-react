@@ -1,5 +1,10 @@
 # svgin-react
 
+> **Archived.** This repo has been folded into the [svgin monorepo](https://github.com/akhiakl/svgin)
+> as `packages/react`, alongside a new `svgin-element` package and the `apps/tryit` demo. Development,
+> issues, and releases (still published to npm as `svgin-react`) now happen there. This repo is kept
+> read-only for history.
+
 [![npm version](https://img.shields.io/npm/v/svgin-react.svg)](https://npmjs.com/package/svgin-react)
 [![npm downloads](https://img.shields.io/npm/dm/svgin-react.svg)](https://npmjs.com/package/svgin-react)
 [![minzipped size](https://img.shields.io/bundlephobia/minzip/svgin-react)](https://bundlephobia.com/package/svgin-react)
